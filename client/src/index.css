@@ -1,3 +1,45 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ----- General Combat Styles ----- */
+
+.combat-base {
+  color: #48bb78; /* Standard Green */
+}
+
+.combat-skill {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.combat-damage {
+  color: #f56565; /* Vivid Red */
+  font-weight: bold;
+}
+
+.combat-miss {
+  color: #a0aec0; /* Gray */
+}
+
+.combat-xp {
+  color: #9f7aea; /* Purple */
+}
+
+/* ----- Damage Reaction Styles ----- */
+
+.reaction-light {
+  color: #9ae6b4; /* Light Green */
+}
+
+.reaction-medium {
+  color: #f6e05e; /* Yellow */
+}
+
+.reaction-heavy {
+  color: #ed8936; /* Orange */
+}
+
+.reaction-crit {
+  color: #c53030; /* Dark Red */
+}

@@ -1,5 +1,6 @@
-// This file makes the `world` directory a module.
-// It also declares the sub-modules within it, making them accessible to other parts of the application.
-
+pub mod player;
+pub mod player_state;
 pub mod room;
-pub mod character;
+pub mod combat;
+pub mod npc;
+pub mod entity;
