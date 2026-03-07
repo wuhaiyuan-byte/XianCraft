@@ -1,0 +1,357 @@
+{
+    "version": 1,
+    "zone": "changan",
+    "name": "长安城",
+    "rooms": [
+      {
+        "id": "changan_1",
+        "name": "城外土路",
+        "description": "一条尘土飞扬的道路，连接着不同的区域。",
+        "coords": {"x": -4, "y": 0},
+        "exits": {
+          "east": "town_1",
+          "west": "west_gate"
+        },
+        "flags": [],
+        "items": [],
+        "npcs": []
+      },
+      {
+        "id": "drum",
+        "name": "鼓楼",
+        "description": "长安城中心鼓楼。",
+        "coords": {"x":0,"y":0},
+        "exits": {
+          "north":"north_1",
+          "south":"south_1",
+          "east":"east_1",
+          "west":"west_1"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"north_1",
+        "name":"北大街",
+        "description":"长安北大街。",
+        "coords":{"x":0,"y":1},
+        "exits":{
+          "south":"drum",
+          "north":"north_2",
+          "east":"inn"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"north_2",
+        "name":"北大街",
+        "description":"街道通向城北。",
+        "coords":{"x":0,"y":2},
+        "exits":{
+          "south":"north_1",
+          "north":"north_gate",
+          "west":"yamen_gate"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"north_gate",
+        "name":"安远门",
+        "description":"长安北门。",
+        "coords":{"x":0,"y":3},
+        "exits":{
+          "south":"north_2"
+        },
+        "flags":["gate"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"south_1",
+        "name":"南大街",
+        "description":"南大街。",
+        "coords":{"x":0,"y":-1},
+        "exits":{
+          "north":"drum",
+          "south":"south_2",
+          "east":"bank"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"south_2",
+        "name":"南大街",
+        "description":"街边有钱庄。",
+        "coords":{"x":0,"y":-2},
+        "exits":{
+          "north":"south_1",
+          "south":"south_gate",
+          "east":"pawnshop"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"south_gate",
+        "name":"永宁门",
+        "description":"长安南门。",
+        "coords":{"x":0,"y":-3},
+        "exits":{
+          "north":"south_2",
+          "south":"long_road"
+        },
+        "flags":["gate"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"west_1",
+        "name":"西大街",
+        "description":"西大街。",
+        "coords":{"x":-1,"y":0},
+        "exits":{
+          "east":"drum",
+          "west":"west_2"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"west_2",
+        "name":"西大街",
+        "description":"西市区域。",
+        "coords":{"x":-2,"y":0},
+        "exits":{
+          "east":"west_1",
+          "west":"west_gate",
+          "south":"biaoju"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"west_gate",
+        "name":"安定门",
+        "description":"西城门。",
+        "coords":{"x":-3,"y":0},
+        "exits":{
+          "east":"west_2"
+        },
+        "flags":["gate"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"east_1",
+        "name":"东大街",
+        "description":"东大街。",
+        "coords":{"x":1,"y":0},
+        "exits":{
+          "west":"drum",
+          "east":"east_2",
+          "south":"casino"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"east_2",
+        "name":"东大街",
+        "description":"靠近东门。",
+        "coords":{"x":2,"y":0},
+        "exits":{
+          "west":"east_1",
+          "east":"east_gate"
+        },
+        "flags":["road"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"east_gate",
+        "name":"长乐门",
+        "description":"长安东门。",
+        "coords":{"x":3,"y":0},
+        "exits":{
+          "west":"east_2"
+        },
+        "flags":["gate"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"inn",
+        "name":"聚豪客栈",
+        "description":"城中客栈。",
+        "coords":{"x":1,"y":1},
+        "exits":{
+          "west":"north_1",
+          "up":"inn_room"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"inn_room",
+        "name":"客房",
+        "description":"安静的房间。",
+        "coords":{"x":1,"y":1},
+        "exits":{
+          "down":"inn"
+        },
+        "flags":["indoors","safe"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"casino",
+        "name":"赌场",
+        "description":"赌徒云集。",
+        "coords":{"x":1,"y":-1},
+        "exits":{
+          "north":"east_1"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"bank",
+        "name":"威信钱庄",
+        "description":"银号。",
+        "coords":{"x":1,"y":-1},
+        "exits":{
+          "west":"south_1"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"pawnshop",
+        "name":"当铺",
+        "description":"典当行。",
+        "coords":{"x":1,"y":-2},
+        "exits":{
+          "west":"south_2"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"biaoju",
+        "name":"虎威镖局",
+        "description":"镖局大厅。",
+        "coords":{"x":-2,"y":-1},
+        "exits":{
+          "north":"west_2"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"yamen_gate",
+        "name":"衙门大门",
+        "description":"官府入口。",
+        "coords":{"x":-1,"y":2},
+        "exits":{
+          "east":"north_2",
+          "north":"yamen"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"yamen",
+        "name":"衙门正厅",
+        "description":"县令办公处。",
+        "coords":{"x":-1,"y":3},
+        "exits":{
+          "south":"yamen_gate"
+        },
+        "flags":["indoors"],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"long_road",
+        "name":"城外长街",
+        "description":"通往南方的官道。",
+        "coords":{"x":0,"y":-4},
+        "exits":{
+          "north":"south_gate",
+          "south":"lake"
+        },
+        "flags":[],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"lake",
+        "name":"镜湖",
+        "description":"湖水如镜。",
+        "coords":{"x":0,"y":-5},
+        "exits":{
+          "north":"long_road",
+          "east":"hotspring"
+        },
+        "flags":[],
+        "items":[],
+        "npcs":[]
+      },
+  
+      {
+        "id":"hotspring",
+        "name":"温泉",
+        "description":"热气腾腾。",
+        "coords":{"x":1,"y":-5},
+        "exits":{
+          "west":"lake"
+        },
+        "flags":[],
+        "items":[],
+        "npcs":[]
+      }
+  
+    ],
+  
+    "npcs": [],
+    "items": []
+  }

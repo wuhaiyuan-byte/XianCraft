@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "zone": "wudang",
+  "name": "武当山",
+  "rooms": [
+    {
+      "id": "wudang_1",
+      "name": "武当山门",
+      "description": "一座庄严的石牌坊，上书“武当山”三个大字。",
+      "coords": { "x": 1, "y": 0 },
+      "exits": { "north": "wudang_2", "west": "town_1" },
+      "flags": ["safe"],
+      "items": [],
+      "npcs": [1]
+    },
+    {
+      "id": "wudang_2",
+      "name": "山间石阶",
+      "description": "一条陡峭的石阶路，蜿蜒向上，两旁是茂密的树林。",
+      "coords": { "x": 1, "y": 1 },
+      "exits": { "south": "wudang_1", "north": "wudang_3" },
+      "flags": [],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "wudang_3",
+      "name": "练武场",
+      "description": "一个宽阔的广场，许多武当弟子正在此地勤奋练功。",
+      "coords": { "x": 1, "y": 2 },
+      "exits": { "south": "wudang_2", "north": "wudang_5", "east": "wudang_4" },
+      "flags": ["training"],
+      "items": [],
+      "npcs": [2, 3]
+    },
+    {
+      "id": "wudang_4",
+      "name": "兵器练习场",
+      "description": "场地边上插着各种兵器，弟子们在这里练习剑法和拳脚。",
+      "coords": { "x": 2, "y": 2 },
+      "exits": { "west": "wudang_3" },
+      "flags": ["training"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "wudang_5",
+      "name": "武当大殿",
+      "description": "宏伟的大殿，供奉着真武大帝的神像，香火缭绕。",
+      "coords": { "x": 1, "y": 3 },
+      "exits": { "south": "wudang_3", "north": "wudang_6", "west": "wudang_7", "east": "wudang_9" },
+      "flags": ["temple", "indoors"],
+      "items": [],
+      "npcs": [4]
+    },
+    {
+      "id": "wudang_6",
+      "name": "三清殿",
+      "description": "供奉着道教三清的殿堂，气氛庄严肃穆。",
+      "coords": { "x": 1, "y": 4 },
+      "exits": { "south": "wudang_5", "east": "wudang_8" },
+      "flags": ["temple", "indoors", "safe"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "wudang_7",
+      "name": "弟子房",
+      "description": "武当弟子们休息的房间，陈设简单整洁。",
+      "coords": { "x": 0, "y": 3 },
+      "exits": { "east": "wudang_5" },
+      "flags": ["indoors", "safe"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "wudang_8",
+      "name": "打坐静室",
+      "description": "一间安静的房间，供弟子们打坐冥想，提升修为。",
+      "coords": { "x": 2, "y": 4 },
+      "exits": { "west": "wudang_6" },
+      "flags": ["indoors", "safe"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "wudang_9",
+      "name": "竹林小径",
+      "description": "一条幽静的小路穿过翠绿的竹林，风吹过时沙沙作响。",
+      "coords": { "x": 2, "y": 3 },
+      "exits": { "west": "wudang_5", "east": "wudang_10" },
+      "flags": [],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "wudang_10",
+      "name": "悬崖观景台",
+      "description": "站在悬崖边，可以俯瞰群山，云雾缭绕，景色壮丽。",
+      "coords": { "x": 3, "y": 3 },
+      "exits": { "west": "wudang_9" },
+      "flags": [],
+      "items": [],
+      "npcs": []
+    }
+  ],
+  "npcs": [
+    {
+      "id": 1,
+      "name": "武当守山弟子",
+      "title": "守卫",
+      "description": "一位年轻的武当弟子，警惕地守卫着山门。",
+      "level": 8,
+      "ai": "guard",
+      "flags": [],
+      "starting_room": "wudang_1",
+      "respawn": true,
+      "respawn_time": 300
+    },
+    {
+      "id": 2,
+      "name": "武当普通弟子",
+      "title": "",
+      "description": "一位正在勤学苦练的武当弟子。",
+      "level": 5,
+      "ai": "wander",
+      "flags": [],
+      "starting_room": "wudang_3",
+      "respawn": true,
+      "respawn_time": 300
+    },
+    {
+      "id": 3,
+      "name": "武当教习",
+      "title": "武学师父",
+      "description": "一位经验丰富的武当教习，正在指导弟子们练功。",
+      "level": 15,
+      "ai": "trainer",
+      "flags": [],
+      "starting_room": "wudang_3",
+      "respawn": true,
+      "respawn_time": 600
+    },
+    {
+      "id": 4,
+      "name": "清虚道长",
+      "title": "武当道长",
+      "description": "一位仙风道骨的道长，正在大殿中静坐。",
+      "level": 25,
+      "ai": "questgiver",
+      "flags": [],
+      "starting_room": "wudang_5",
+      "respawn": true,
+      "respawn_time": 900
+    }
+  ],
+  "items": []
+}

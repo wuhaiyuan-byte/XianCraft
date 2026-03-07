@@ -1,0 +1,71 @@
+{
+    "version": 1,
+    "zone": "start_zone",
+    "name": "Start Zone",
+    "rooms": [
+        {
+            "id": "1",
+            "name": "The Town Square",
+            "description": "You are in the center of a bustling town square. A fountain bubbles in the center, and shops line the cobblestone streets.",
+            "coords": { "x": 0, "y": 0 },
+            "exits": {
+                "north": "2",
+                "south": "3"
+            },
+            "flags": ["safe"],
+            "items": [],
+            "npcs": []
+        },
+        {
+            "id": "2",
+            "name": "The Rusty Dragon Inn",
+            "description": "The air is thick with the smell of ale and sawdust. A bard is playing a lively tune in the corner.",
+            "coords": { "x": 0, "y": 1 },
+            "exits": {
+                "south": "1"
+            },
+            "flags": ["indoors"],
+            "items": [],
+            "npcs": [2]
+        },
+        {
+            "id": "3",
+            "name": "The Shimmering Potion",
+            "description": "Shelves packed with glowing potions and strange ingredients line the walls of this cramped shop. An old alchemist, Elara, looks up as you enter.",
+            "coords": { "x": 0, "y": -1 },
+            "exits": {
+                "north": "1"
+            },
+            "flags": ["indoors"],
+            "items": [],
+            "npcs": [1]
+        }
+    ],
+    "npcs": [
+        {
+            "id": 1,
+            "name": "Elara",
+            "title": "Alchemist",
+            "description": "The alchemist, a wizened old woman with a twinkle in her eye.",
+            "level": 10,
+            "ai": "vendor",
+            "flags": [],
+            "starting_room": "3",
+            "respawn": true,
+            "respawn_time": 600
+        },
+        {
+            "id": 2,
+            "name": "Gordo",
+            "title": "Dwarf",
+            "description": "A gruff-looking dwarf with a magnificent beard, currently enjoying a pint of ale.",
+            "level": 12,
+            "ai": "neutral",
+            "flags": [],
+            "starting_room": "2",
+            "respawn": true,
+            "respawn_time": 600
+        }
+    ],
+    "items": []
+}

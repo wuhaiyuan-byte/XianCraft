@@ -1,0 +1,28 @@
+{
+    "id": 1,
+    "name": "unarmed",
+    "skill_type": "Unarmed",
+    "skill_class": "Basic",
+    "practice_limit": 100,
+    "actions": [
+        {
+            "lvl": 1,
+            "damage": 10,
+            "force": 1,
+            "dodge": 0,
+            "parry": 0,
+            "damage_type": "Blunt",
+            "description": "$N对著$n的$l挥出了一拳"
+        },
+        {
+            "lvl": 10,
+            "damage": 20,
+            "force": 2,
+            "dodge": 0,
+            "parry": 0,
+            "damage_type": "Blunt",
+            "description": "$N朝著$n的$l打出了一记重拳"
+        }
+    ],
+    "performs": []
+}

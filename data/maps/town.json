@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "zone": "riverwood",
+  "name": "Riverwood",
+  "rooms": [
+    {
+      "id": "town_1",
+      "name": "Riverwood",
+      "description": "You are in the town of Riverwood.",
+      "coords": { "x": 0, "y": 0 },
+      "exits": {
+        "north": "town_2",
+        "south": "forest_1",
+        "east": "wudang_1",
+        "west": "changan_1"
+      },
+      "flags": ["safe"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "town_2",
+      "name": "Riverwood",
+      "description": "You are in the town of Riverwood.",
+      "coords": { "x": 0, "y": 1 },
+      "exits": {
+        "south": "town_1",
+        "west": "town_3"
+      },
+      "flags": ["safe"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "town_3",
+      "name": "Blacksmith",
+      "description": "You are in the blacksmith shop.",
+      "coords": { "x": -1, "y": 1 },
+      "exits": {
+        "east": "town_2"
+      },
+      "flags": ["indoors", "safe"],
+      "items": [],
+      "npcs": []
+    },
+    {
+      "id": "forest_1",
+      "name": "Riverwood Forest",
+      "description": "You are in a dark and spooky forest.",
+      "coords": { "x": 0, "y": -1 },
+      "exits": {
+        "north": "town_1"
+      },
+      "flags": [],
+      "items": [],
+      "npcs": [1, 2]
+    }
+  ],
+  "npcs": [
+    {
+      "id": 1,
+      "name": "Goblin",
+      "title": "",
+      "description": "A small, green creature with a pointy nose.",
+      "level": 2,
+      "ai": "aggressive",
+      "flags": [],
+      "starting_room": "forest_1",
+      "respawn": true,
+      "respawn_time": 120
+    },
+    {
+      "id": 2,
+      "name": "Wolf",
+      "title": "",
+      "description": "A large, gray wolf.",
+      "level": 3,
+      "ai": "aggressive",
+      "flags": [],
+      "starting_room": "forest_1",
+      "respawn": true,
+      "respawn_time": 180
+    }
+  ],
+  "items": []
+}
