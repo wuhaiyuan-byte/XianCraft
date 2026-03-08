@@ -22,10 +22,19 @@
     "1003": {
       "name": "樵夫大叔",
       "title": "伐木工",
-      "description": "结实的肌肉显示出他长年累月的劳作成果。",
+      "description": "结实的肌肉显示出 he 长年累月的劳作成果。",
       "level": 5,
       "ai": "friendly",
       "scripts": { "on_work": "trigger_woodcutting" }
+    },
+    "2000": {
+      "name": "告示牌",
+      "title": "任务悬赏",
+      "description": "一块陈旧的木质告示牌，上面贴着一些悬赏任务。",
+      "level": 0,
+      "ai": "friendly",
+      "flags": ["quest_board", "no_kill", "invincible"],
+      "dialog_id": "dlg_quest_board"
     }
   }
 }

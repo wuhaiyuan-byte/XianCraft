@@ -225,6 +225,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                                 quest_id: "tutorial_1".to_string(),
                                                 current_step: 0,
                                                 is_completed: false,
+                                                kill_counts: HashMap::new(),
                                             });
                                             tutorial_given = true;
                                         }
@@ -309,6 +310,55 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     messages_to_send.push(ServerMessage::Info { payload: "你站了起来，感觉精力充沛了一些。".to_string() });
                                 }
                             }
+                            Command::Attack { target } => {
+                                let npcs = world.get_npcs_in_room(&current_room_id_str);
+                                if let Some(npc) = npcs.iter().find(|n| n.name == target || n.prototype_id.to_string() == target) {
+                                    let is_monster = if let Some(proto) = world.static_data.npc_prototypes.get(&npc.prototype_id) {
+                                        proto.ai == "monster" || !proto.flags.contains(&"friendly".to_string())
+                                    } else {
+                                        true
+                                    };
+
+                                    if is_monster {
+                                        let combat_msg = format!("你对着 {} 发起猛攻，几个回合后将其击败了！", npc.name);
+                                        messages_to_send.push(ServerMessage::Description { payload: combat_msg });
+
+                                        // Update quest progress
+                                        let quest_msg = session.player.on_kill(&npc.prototype_id.to_string(), &world.static_data.quests);
+                                        if !quest_msg.is_empty() {
+                                            messages_to_send.push(ServerMessage::Info { payload: quest_msg });
+                                        }
+
+                                        // Check for completed kill quests and grant rewards immediately
+                                        let completed_ids: Vec<String> = session.player.active_quests.iter()
+                                            .filter(|status| status.is_completed)
+                                            .filter_map(|status| {
+                                                world.static_data.quests.get(&status.quest_id)
+                                                    .filter(|quest| quest.quest_type == "kill")
+                                                    .map(|_| status.quest_id.clone())
+                                            })
+                                            .collect();
+                                        
+                                        for id in &completed_ids {
+                                            if let Some(quest) = world.static_data.quests.get(id as &String) {
+                                                let reward_msg = session.player.grant_reward(&quest.rewards);
+                                                messages_to_send.push(ServerMessage::Info { payload: reward_msg });
+                                            }
+                                            session.player.completed_quests.insert(id.clone());
+                                        }
+                                        
+                                        session.player.active_quests.retain(|q| !completed_ids.contains(&q.quest_id));
+
+                                        // Remove NPC instance
+                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
+                                        dynamic_data.npcs.remove(&npc.instance_id);
+                                    } else {
+                                        messages_to_send.push(ServerMessage::Error { payload: format!("{} 看起来很友善，你下不了手。", npc.name) });
+                                    }
+                                } else {
+                                    messages_to_send.push(ServerMessage::Error { payload: format!("你在这没看到 {}。", target) });
+                                }
+                            }
                             Command::Work => {
                                 if current_room_id_str != "bamboo_forest" && current_room_id_str != "spirit_spring" {
                                     messages_to_send.push(ServerMessage::Error { payload: "这里似乎没有什么值得你劳作的地方，换个环境试试？".to_string() });
@@ -377,7 +427,12 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                         }
                                         session.player.active_quests.retain(|q| {
                                             if let Some(qd) = world.static_data.quests.get(&q.quest_id) {
-                                                if q.current_step as usize >= qd.steps.len() {
+                                                if qd.quest_type == "kill" {
+                                                    if q.is_completed {
+                                                        session.player.completed_quests.insert(q.quest_id.clone());
+                                                        return false;
+                                                    }
+                                                } else if q.current_step as usize >= qd.steps.len() {
                                                     session.player.completed_quests.insert(q.quest_id.clone());
                                                     return false;
                                                 }
@@ -432,7 +487,12 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                             }
                                             session.player.active_quests.retain(|q| {
                                                 if let Some(qd) = world.static_data.quests.get(&q.quest_id) {
-                                                    if q.current_step as usize >= qd.steps.len() {
+                                                    if qd.quest_type == "kill" {
+                                                        if q.is_completed {
+                                                            session.player.completed_quests.insert(q.quest_id.clone());
+                                                            return false;
+                                                        }
+                                                    } else if q.current_step as usize >= qd.steps.len() {
                                                         session.player.completed_quests.insert(q.quest_id.clone());
                                                         return false;
                                                     }
@@ -447,6 +507,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                                         quest_id: "q102".to_string(),
                                                         current_step: 0,
                                                         is_completed: false,
+                                                        kill_counts: HashMap::new(),
                                                     });
                                                     payload.push_str("\n\x1b[1;33m[任务接取] 老村长交给了你一个新的任务：勤能补拙。输入 'qs' 查看详情。\x1b[0m");
                                                 }
@@ -464,6 +525,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                                     quest_id: "q102".to_string(),
                                                     current_step: 0,
                                                     is_completed: false,
+                                                    kill_counts: HashMap::new(),
                                                 });
                                                 payload.push_str("\n\x1b[1;33m[任务接取] 老村长交给了你一个新的任务：勤能补拙。输入 'qs' 查看详情。\x1b[0m");
                                             }
@@ -472,6 +534,28 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     messages_to_send.push(ServerMessage::Description { payload });
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: format!("这里没有 {}。", target) });
+                                }
+                            }
+                            Command::Accept { quest_id } => {
+                                let npcs = world.get_npcs_in_room(&current_room_id_str);
+                                let has_board = npcs.iter().any(|n| n.prototype_id == 2000);
+                                
+                                if has_board {
+                                    if let Some(quest) = world.static_data.quests.get(&quest_id) {
+                                        if session.player.completed_quests.contains(&quest_id) {
+                                            messages_to_send.push(ServerMessage::Error { payload: "你已经完成了这个任务，不能重复接取。".to_string() });
+                                        } else if session.player.active_quests.iter().any(|q| q.quest_id == quest_id) {
+                                            messages_to_send.push(ServerMessage::Error { payload: "你已经接取过这个任务了。".to_string() });
+                                        } else if session.player.accept_quest(quest) {
+                                            messages_to_send.push(ServerMessage::Info { payload: format!("\x1b[1;33m[任务接取] 你接取了任务：{}。输入 'qs' 可查看详细进度。\x1b[0m", quest.name) });
+                                        } else {
+                                            messages_to_send.push(ServerMessage::Error { payload: "接取任务失败。".to_string() });
+                                        }
+                                    } else {
+                                        messages_to_send.push(ServerMessage::Error { payload: "没有找到这个任务。".to_string() });
+                                    }
+                                } else {
+                                    messages_to_send.push(ServerMessage::Error { payload: "这里没有告示牌，去野外入口找找看吧。".to_string() });
                                 }
                             }
                             Command::Get { item } => {
@@ -521,9 +605,15 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     let mut output = String::from("\x1b[1;33m进行中的任务：\x1b[0m\n");
                                     for status in &session.player.active_quests {
                                         if let Some(quest) = world.static_data.quests.get(&status.quest_id) {
-                                            let step_desc = quest.steps.get(status.current_step as usize)
-                                                .map(|s| s.description.as_str())
-                                                .unwrap_or("已完成所有步骤。");
+                                            let step_desc = if quest.quest_type == "kill" {
+                                                let count = status.kill_counts.get(&quest.target_id).unwrap_or(&0);
+                                                format!("{}: {}/{}", quest.description, count, quest.target_count.unwrap_or(0))
+                                            } else {
+                                                quest.steps.get(status.current_step as usize)
+                                                    .map(|s| s.description.as_str())
+                                                    .unwrap_or("已完成所有步骤。")
+                                                    .to_string()
+                                            };
                                             output.push_str(&format!("- {}: {}\n", quest.name, step_desc));
                                         }
                                     }
@@ -533,6 +623,25 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                             Command::Look => {
                                 let desc = get_full_room_description(&current_room_id_str, world);
                                 messages_to_send.push(ServerMessage::Description { payload: desc });
+                                
+                                // Check if looking at a QuestBoard to show available quests
+                                let npcs = world.get_npcs_in_room(&current_room_id_str);
+                                if npcs.iter().any(|n| n.prototype_id == 2000) {
+                                    let mut available = Vec::new();
+                                    for quest in world.static_data.quests.values() {
+                                        if quest.quest_type == "kill" && 
+                                           !session.player.completed_quests.contains(&quest.id) &&
+                                           !session.player.active_quests.iter().any(|q| q.quest_id == quest.id) {
+                                            available.push(format!("- [{}] {}", quest.id, quest.name));
+                                        }
+                                    }
+                                    if !available.is_empty() {
+                                        let mut board_msg = String::from("\n\x1b[1;33m告示牌上贴着以下悬赏：\x1b[0m\n");
+                                        board_msg.push_str(&available.join("\n"));
+                                        board_msg.push_str("\n\x1b[1;37m输入 'accept <任务ID>' 即可接取。\x1b[0m");
+                                        messages_to_send.push(ServerMessage::Info { payload: board_msg });
+                                    }
+                                }
                             }
                             Command::Score => {
                                 let score_str = session.player.get_score_string(&world.static_data.config);

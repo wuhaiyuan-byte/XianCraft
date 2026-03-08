@@ -23,6 +23,11 @@ pub struct ZoneData {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct MultiZoneData {
+    pub zones: Vec<ZoneData>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Room {
     pub id: String,
     pub name: String,
@@ -115,6 +120,12 @@ pub struct Quest {
     pub id: String,
     pub name: String,
     pub description: String,
+    #[serde(rename = "type", default)]
+    pub quest_type: String, // "kill", "talk", "move", "serial"
+    #[serde(default)]
+    pub target_id: String,
+    pub target_count: Option<u32>,
+    #[serde(default)]
     pub steps: Vec<QuestStep>,
     pub rewards: QuestRewards,
 }

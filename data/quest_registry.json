@@ -4,6 +4,8 @@
       "id": "tutorial_1",
       "name": "初入凡尘",
       "description": "熟悉一下村子的环境。",
+      "type": "serial",
+      "target_id": "",
       "steps": [
         {
           "step_id": 0,
@@ -28,6 +30,8 @@
       "id": "q102",
       "name": "勤能补拙",
       "description": "在竹林或泉水进行 5 次劳作，感悟天地灵气。",
+      "type": "serial",
+      "target_id": "",
       "steps": [
         {
           "step_id": 0,
@@ -63,6 +67,18 @@
         "items": [
           1001
         ]
+      }
+    },
+    "q201": {
+      "id": "q201",
+      "name": "清缴翠竹蛇",
+      "description": "青翠竹林中的翠竹蛇泛滥，请前往清缴 10 只。",
+      "type": "kill",
+      "target_id": "3002",
+      "target_count": 2,
+      "rewards": {
+        "exp": 500,
+        "shell": 200
       }
     }
   }

@@ -1,0 +1,542 @@
+{
+  "zone": "wilderness",
+  "name": "野外荒原",
+  "rooms": [
+    {
+      "id": "deep_bamboo_1",
+      "name": "竹林入口",
+      "description": "翠竹挺拔，微风拂过发出沙沙响声。这里立着一块告示牌。",
+      "coords": {
+        "x": 0,
+        "y": 0
+      },
+      "exits": {
+        "north": "deep_bamboo_2",
+        "south": "bamboo_forest"
+      },
+      "npcs": [
+        2000,
+        3001
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.2
+    },
+    {
+      "id": "deep_bamboo_2",
+      "name": "清幽径",
+      "description": "林间小道蜿蜒，地上的落叶堆积了一层又一层。",
+      "coords": {
+        "x": 0,
+        "y": 1
+      },
+      "exits": {
+        "south": "deep_bamboo_1",
+        "north": "deep_bamboo_3",
+        "east": "deep_bamboo_4"
+      },
+      "npcs": [
+        3001,
+        3002
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.2
+    },
+    {
+      "id": "deep_bamboo_3",
+      "name": "密林深处",
+      "description": "竹子越发密集，阳光难以穿透，显得有些昏暗。",
+      "coords": {
+        "x": 0,
+        "y": 2
+      },
+      "exits": {
+        "south": "deep_bamboo_2"
+      },
+      "npcs": [
+        3002,
+        3003
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.2
+    },
+    {
+      "id": "deep_bamboo_4",
+      "name": "竹林东缘",
+      "description": "这里的竹子稍显稀疏，可以听到远处的野兽咆哮。",
+      "coords": {
+        "x": 1,
+        "y": 1
+      },
+      "exits": {
+        "west": "deep_bamboo_2",
+        "east": "deep_bamboo_5"
+      },
+      "npcs": [
+        3003
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.2
+    },
+    {
+      "id": "deep_bamboo_5",
+      "name": "野猪林",
+      "description": "泥土有被拱过的痕迹，空气中弥漫着一股野兽的味道。",
+      "coords": {
+        "x": 2,
+        "y": 1
+      },
+      "exits": {
+        "west": "deep_bamboo_4"
+      },
+      "npcs": [
+        3003,
+        3003
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.2
+    },
+    {
+      "id": "misty_valley_1",
+      "name": "谷口",
+      "description": "浓浓的雾气从谷中溢出，让人看不清前路。",
+      "coords": {
+        "x": 10,
+        "y": 0
+      },
+      "exits": {
+        "north": "misty_valley_2"
+      },
+      "npcs": [
+        2000,
+        3004
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.3
+    },
+    {
+      "id": "misty_valley_2",
+      "name": "迷雾小径",
+      "description": "四周白茫茫一片，只能依稀分辨出脚下的乱石。",
+      "coords": {
+        "x": 10,
+        "y": 1
+      },
+      "exits": {
+        "south": "misty_valley_1",
+        "north": "misty_valley_3",
+        "west": "misty_valley_4"
+      },
+      "npcs": [
+        3004,
+        3005
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.3
+    },
+    {
+      "id": "misty_valley_3",
+      "name": "幻影泽",
+      "description": "积水潭反射着微光，雾气中似乎有影子在晃动。",
+      "coords": {
+        "x": 10,
+        "y": 2
+      },
+      "exits": {
+        "south": "misty_valley_2"
+      },
+      "npcs": [
+        3005,
+        3005
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.3
+    },
+    {
+      "id": "misty_valley_4",
+      "name": "怪石滩",
+      "description": "奇形怪状的岩石横七竖八地躺着，缝隙中长着妖艳的花。",
+      "coords": {
+        "x": 9,
+        "y": 1
+      },
+      "exits": {
+        "east": "misty_valley_2",
+        "west": "misty_valley_5"
+      },
+      "npcs": [
+        3006
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.3
+    },
+    {
+      "id": "misty_valley_5",
+      "name": "食人花丛",
+      "description": "巨大的彩色花瓣在雾中摇曳，散发着诱人的甜香。",
+      "coords": {
+        "x": 8,
+        "y": 1
+      },
+      "exits": {
+        "east": "misty_valley_4"
+      },
+      "npcs": [
+        3006,
+        3006
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.3
+    },
+    {
+      "id": "burial_mound_1",
+      "name": "荒山脚",
+      "description": "枯树昏鸦，几块残破的墓碑歪斜在路边。",
+      "coords": {
+        "x": 20,
+        "y": 0
+      },
+      "exits": {
+        "up": "burial_mound_2"
+      },
+      "npcs": [
+        2000,
+        3007
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.25
+    },
+    {
+      "id": "burial_mound_2",
+      "name": "破败坟场",
+      "description": "到处是掘开的坟坑，阴森的冷风直往骨头缝里钻。",
+      "coords": {
+        "x": 20,
+        "y": 1
+      },
+      "exits": {
+        "down": "burial_mound_1",
+        "north": "burial_mound_3",
+        "east": "burial_mound_4"
+      },
+      "npcs": [
+        3007,
+        3008
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.25
+    },
+    {
+      "id": "burial_mound_3",
+      "name": "阴魂坡",
+      "description": "半透明的磷火在空中漂浮，耳边隐约有哭泣声。",
+      "coords": {
+        "x": 20,
+        "y": 2
+      },
+      "exits": {
+        "south": "burial_mound_2"
+      },
+      "npcs": [
+        3008,
+        3008
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.25
+    },
+    {
+      "id": "burial_mound_4",
+      "name": "老尸林",
+      "description": "树上挂着烂布条，脚下的泥土湿冷而黏稠。",
+      "coords": {
+        "x": 21,
+        "y": 1
+      },
+      "exits": {
+        "west": "burial_mound_2",
+        "north": "burial_mound_5"
+      },
+      "npcs": [
+        3009
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.25
+    },
+    {
+      "id": "burial_mound_5",
+      "name": "古墓入口",
+      "description": "一座半坍塌的大墓，沉重的石门露出一个黑漆漆的缝隙。",
+      "coords": {
+        "x": 21,
+        "y": 2
+      },
+      "exits": {
+        "south": "burial_mound_4"
+      },
+      "npcs": [
+        3009,
+        3009
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.25
+    },
+    {
+      "id": "peak_foot_1",
+      "name": "山门石",
+      "description": "高耸入云的山峰直插天际，一块巨石刻着“青峰”二字。",
+      "coords": {
+        "x": 30,
+        "y": 0
+      },
+      "exits": {
+        "north": "peak_foot_2"
+      },
+      "npcs": [
+        2000,
+        3010
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.15
+    },
+    {
+      "id": "peak_foot_2",
+      "name": "乱石坡",
+      "description": "山路陡峭，碎石遍地，时不时有猿猴的啼叫声。",
+      "coords": {
+        "x": 30,
+        "y": 1
+      },
+      "exits": {
+        "south": "peak_foot_1",
+        "north": "peak_foot_3",
+        "west": "peak_foot_4"
+      },
+      "npcs": [
+        3010,
+        3011
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.15
+    },
+    {
+      "id": "peak_foot_3",
+      "name": "鹰愁涧",
+      "description": "抬头只见一线天，苍鹰在头顶盘旋俯冲。",
+      "coords": {
+        "x": 30,
+        "y": 2
+      },
+      "exits": {
+        "south": "peak_foot_2"
+      },
+      "npcs": [
+        3011,
+        3011
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.15
+    },
+    {
+      "id": "peak_foot_4",
+      "name": "顽石林",
+      "description": "许多天然形成的石柱耸立，有些石柱竟然会自己移动。",
+      "coords": {
+        "x": 29,
+        "y": 1
+      },
+      "exits": {
+        "east": "peak_foot_2",
+        "west": "peak_foot_5"
+      },
+      "npcs": [
+        3012
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.15
+    },
+    {
+      "id": "peak_foot_5",
+      "name": "祭坛遗迹",
+      "description": "残缺的石兽雕像散落在荒草中，透着古老的气息。",
+      "coords": {
+        "x": 28,
+        "y": 1
+      },
+      "exits": {
+        "east": "peak_foot_4"
+      },
+      "npcs": [
+        3012,
+        3012
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.15
+    },
+    {
+      "id": "sunset_waste_1",
+      "name": "荒原入口",
+      "description": "夕阳在地平线上挣扎，将大地染成血红色。",
+      "coords": {
+        "x": 40,
+        "y": 0
+      },
+      "exits": {
+        "north": "sunset_waste_2"
+      },
+      "npcs": [
+        2000,
+        3013
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.4
+    },
+    {
+      "id": "sunset_waste_2",
+      "name": "废弃营地",
+      "description": "破烂的帐篷和熄灭的火堆，显示这里曾有人扎营。",
+      "coords": {
+        "x": 40,
+        "y": 1
+      },
+      "exits": {
+        "south": "sunset_waste_1",
+        "north": "sunset_waste_3",
+        "east": "sunset_waste_4"
+      },
+      "npcs": [
+        3013,
+        3014
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.4
+    },
+    {
+      "id": "sunset_waste_3",
+      "name": "鸣沙地",
+      "description": "风吹过沙丘发出呜呜的声音，细沙下藏着致命的危险。",
+      "coords": {
+        "x": 40,
+        "y": 2
+      },
+      "exits": {
+        "south": "sunset_waste_2"
+      },
+      "npcs": [
+        3014,
+        3014
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.4
+    },
+    {
+      "id": "sunset_waste_4",
+      "name": "枯草坡",
+      "description": "半人高的枯黄野草，是伏击者的天然掩护。",
+      "coords": {
+        "x": 41,
+        "y": 1
+      },
+      "exits": {
+        "west": "sunset_waste_2",
+        "east": "sunset_waste_5"
+      },
+      "npcs": [
+        3015
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.4
+    },
+    {
+      "id": "sunset_waste_5",
+      "name": "狼穴",
+      "description": "四周散落着白骨，无数幽绿的眼睛在黑暗中窥视。",
+      "coords": {
+        "x": 42,
+        "y": 1
+      },
+      "exits": {
+        "west": "sunset_waste_4"
+      },
+      "npcs": [
+        3015,
+        3015
+      ],
+      "flags": [
+        "wild",
+        "respawn"
+      ],
+      "respawn_rate": 0.4
+    }
+  ]
+}

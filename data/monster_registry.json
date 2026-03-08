@@ -1,0 +1,230 @@
+{
+  "zone": "wild",
+  "entities": {
+    "3001": {
+      "name": "灵蝶",
+      "description": "一只闪烁着微弱灵光的蝴蝶，在这片区域飞舞。",
+      "level": 1,
+      "hp": 50,
+      "atk": 5,
+      "exp_reward": 10,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "butterfly_wing",
+          "chance": 0.5
+        }
+      ]
+    },
+    "3002": {
+      "name": "翠竹蛇",
+      "description": "通体翠绿的长蛇，完美地隐藏在竹林之中。",
+      "level": 2,
+      "hp": 80,
+      "atk": 8,
+      "exp_reward": 20,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "snake_gall",
+          "chance": 0.3
+        }
+      ]
+    },
+    "3003": {
+      "name": "野猪",
+      "description": "体型肥硕的野猪，两颗獠牙显得格外锋利。",
+      "level": 3,
+      "hp": 150,
+      "atk": 12,
+      "exp_reward": 40,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "boar_meat",
+          "chance": 0.6
+        }
+      ]
+    },
+    "3004": {
+      "name": "迷雾蜘蛛",
+      "description": "在浓雾中吐丝的巨大蜘蛛，复眼闪烁着红光。",
+      "level": 3,
+      "hp": 120,
+      "atk": 15,
+      "exp_reward": 45,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "spider_silk",
+          "chance": 0.4
+        }
+      ]
+    },
+    "3005": {
+      "name": "幻影狐",
+      "description": "行动极为敏捷的狐狸，能在迷雾中产生重重幻影。",
+      "level": 4,
+      "hp": 180,
+      "atk": 20,
+      "exp_reward": 60,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "fox_pelt",
+          "chance": 0.2
+        }
+      ]
+    },
+    "3006": {
+      "name": "食人花",
+      "description": "色彩鲜艳的奇特植物，正张开大嘴等待猎物。",
+      "level": 5,
+      "hp": 300,
+      "atk": 25,
+      "exp_reward": 85,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "flower_seed",
+          "chance": 0.5
+        }
+      ]
+    },
+    "3007": {
+      "name": "骷髅",
+      "description": "白骨森森的亡灵生物，漫无目的地游走在乱葬岗。",
+      "level": 6,
+      "hp": 250,
+      "atk": 30,
+      "exp_reward": 110,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "bone_fragment",
+          "chance": 0.4
+        }
+      ]
+    },
+    "3008": {
+      "name": "怨灵",
+      "description": "由于怨念不散而形成的虚影，发出阵阵哀嚎。",
+      "level": 7,
+      "hp": 350,
+      "atk": 35,
+      "exp_reward": 150,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "ghost_essence",
+          "chance": 0.1
+        }
+      ]
+    },
+    "3009": {
+      "name": "僵尸",
+      "description": "身体僵硬的腐尸，虽然动作迟缓但力大无穷。",
+      "level": 8,
+      "hp": 500,
+      "atk": 40,
+      "exp_reward": 200,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "rotten_flesh",
+          "chance": 0.3
+        }
+      ]
+    },
+    "3010": {
+      "name": "灵猴",
+      "description": "双目有神，极具灵性的猴子，擅长在山石间攀爬。",
+      "level": 7,
+      "hp": 400,
+      "atk": 38,
+      "exp_reward": 160,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "fruit",
+          "chance": 0.7
+        }
+      ]
+    },
+    "3011": {
+      "name": "铁爪鹰",
+      "description": "盘旋在青云峰上空的猛禽，一双铁爪寒光四射。",
+      "level": 8,
+      "hp": 450,
+      "atk": 45,
+      "exp_reward": 220,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "eagle_feather",
+          "chance": 0.4
+        }
+      ]
+    },
+    "3012": {
+      "name": "石兽",
+      "description": "原本是古老的雕像，如今却被赋予了诡异的生命。",
+      "level": 9,
+      "hp": 800,
+      "atk": 50,
+      "exp_reward": 300,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "stone_heart",
+          "chance": 0.2
+        }
+      ]
+    },
+    "3013": {
+      "name": "劫匪",
+      "description": "流窜在落日荒原的歹人，专门打劫过往行人。",
+      "level": 9,
+      "hp": 600,
+      "atk": 55,
+      "exp_reward": 320,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "gold_coin",
+          "chance": 0.5
+        }
+      ]
+    },
+    "3014": {
+      "name": "沙蝎",
+      "description": "潜伏在黄沙之下的巨大毒蝎，尾勾闪烁着蓝莹莹的毒光。",
+      "level": 10,
+      "hp": 700,
+      "atk": 60,
+      "exp_reward": 400,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "scorpion_tail",
+          "chance": 0.3
+        }
+      ]
+    },
+    "3015": {
+      "name": "孤狼",
+      "description": "在荒原上徘徊的恶狼，饥饿使它变得格外疯狂。",
+      "level": 11,
+      "hp": 850,
+      "atk": 70,
+      "exp_reward": 500,
+      "ai": "monster",
+      "drop_table": [
+        {
+          "item": "wolf_tooth",
+          "chance": 0.4
+        }
+      ]
+    }
+  }
+}

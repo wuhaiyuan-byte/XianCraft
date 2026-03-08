@@ -6,6 +6,7 @@ pub enum Command {
     Score,
     Talk { target: String },
     Quest,
+    Accept { quest_id: String },
     Say { message: String },
     Go { direction: String },
     Get { item: String },
@@ -60,6 +61,15 @@ pub fn parse(input: &str) -> Command {
             }
         }
         "quest" | "qs" => Command::Quest,
+        "accept" => {
+            if let Some(id) = parts.next() {
+                Command::Accept {
+                    quest_id: id.to_string(),
+                }
+            } else {
+                Command::Invalid("Accept which quest?".to_string())
+            }
+        }
         "say" => {
             let message = parts.collect::<Vec<&str>>().join(" ");
             if message.is_empty() {

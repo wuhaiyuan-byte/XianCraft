@@ -28,7 +28,7 @@
       "name": "青翠竹林",
       "description": "翠绿的竹林随风摇曳，非常适合凡人在此劳作，感悟天地韵律。",
       "coords": { "x": 1, "y": -1 },
-      "exits": { "west": "village_square" },
+      "exits": { "west": "village_square", "north": "deep_bamboo_1" },
       "flags": [],
       "npcs": [1003],
       "items": []

@@ -1,1 +1,6 @@
 pub mod realm_tests;
+pub mod wild_zone_tests;
+pub mod quest_interaction_tests;
+pub mod attack_quest_test;
+pub mod full_quest_workflow_test;
+pub mod quest_reward_tests;

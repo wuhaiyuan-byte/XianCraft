@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use crate::world_model::WorldConfig;
+use crate::world_model::{WorldConfig, Quest};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Wallet {
@@ -22,6 +22,7 @@ pub struct PlayerQuestStatus {
     pub quest_id: String,
     pub current_step: u32,
     pub is_completed: bool,
+    pub kill_counts: HashMap<String, u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -109,6 +110,40 @@ impl Player {
         player.qi = player.qi_max;
         player.stamina = player.stamina_max;
         player
+    }
+
+    pub fn accept_quest(&mut self, quest: &Quest) -> bool {
+        if self.completed_quests.contains(&quest.id) || self.active_quests.iter().any(|q| q.quest_id == quest.id) {
+            return false;
+        }
+        self.active_quests.push(PlayerQuestStatus {
+            quest_id: quest.id.clone(),
+            current_step: 0,
+            is_completed: false,
+            kill_counts: HashMap::new(),
+        });
+        true
+    }
+
+    pub fn on_kill(&mut self, monster_id: &str, quest_registry: &HashMap<String, Quest>) -> String {
+        let mut output = String::new();
+        for status in self.active_quests.iter_mut() {
+            if let Some(quest) = quest_registry.get(&status.quest_id) {
+                if quest.quest_type == "kill" && quest.target_id == monster_id {
+                    let count = status.kill_counts.entry(monster_id.to_string()).or_insert(0);
+                    *count += 1;
+                    
+                    let target_count = quest.target_count.unwrap_or(1);
+                    output.push_str(&format!("\n\x1b[1;32m[任务进度] {}: {}/{} \x1b[0m", quest.name, count, target_count));
+                    
+                    if *count >= target_count {
+                        status.is_completed = true;
+                        output.push_str(&format!("\n\x1b[1;33m你已达成任务“{}”的目标！\x1b[0m", quest.name));
+                    }
+                }
+            }
+        }
+        output
     }
 
     pub fn update_vitals(&mut self) {

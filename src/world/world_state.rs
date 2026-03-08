@@ -3,12 +3,14 @@ use crate::world::loader::StaticWorldData;
 use crate::world_model::Room;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use rand::seq::SliceRandom;
 
 // Represents the dynamic, mutable state of the game world.
 pub struct DynamicData {
     pub players: HashMap<u64, PlayerLocation>,
     pub npcs: HashMap<u64, Npc>, // Instance of an NPC in the world
     pub room_items: HashMap<String, Vec<u32>>,
+    pub next_npc_id: u64,
 }
 
 // Tracks a player's location.
@@ -35,21 +37,21 @@ impl WorldState {
             players: HashMap::new(),
             npcs: HashMap::new(),
             room_items,
+            next_npc_id: 0,
         };
 
         // Spawn initial NPCs from prototypes
-        let mut npc_instance_id: u64 = 0;
         for room in static_data.rooms.values() {
             for npc_prototype_id in &room.npcs {
                 if let Some(prototype) = static_data.npc_prototypes.get(npc_prototype_id) {
                     let npc = Npc::from_prototype(
-                        npc_instance_id, 
+                        dynamic_data.next_npc_id, 
                         *npc_prototype_id, 
                         prototype, 
                         room.id.clone(),
                     );
-                    dynamic_data.npcs.insert(npc_instance_id, npc);
-                    npc_instance_id += 1;
+                    dynamic_data.npcs.insert(dynamic_data.next_npc_id, npc);
+                    dynamic_data.next_npc_id += 1;
                 }
             }
         }
@@ -102,5 +104,43 @@ impl WorldState {
             }
         }
         false
+    }
+
+    pub fn respawn_monsters(&self) {
+        let mut data = self.dynamic_data.lock().unwrap();
+        let mut new_npcs = Vec::new();
+
+        for room in self.static_data.rooms.values() {
+            // Check if room has npcs and if it is a wild/respawn zone
+            if room.npcs.is_empty() { continue; }
+            
+            // Count current npcs in this room
+            let current_count = data.npcs.values().filter(|n| n.current_room == room.id).count();
+            
+            // If empty, respawn one random monster from the room's list
+            if current_count == 0 {
+                if let Some(&proto_id) = room.npcs.choose(&mut rand::thread_rng()) {
+                    if let Some(prototype) = self.static_data.npc_prototypes.get(&proto_id) {
+                        let npc = Npc::from_prototype(
+                            data.next_npc_id,
+                            proto_id,
+                            prototype,
+                            room.id.clone(),
+                        );
+                        new_npcs.push((data.next_npc_id, npc));
+                        data.next_npc_id += 1;
+                    }
+                }
+            }
+        }
+
+        for (id, npc) in new_npcs {
+            data.npcs.insert(id, npc);
+        }
+    }
+
+    pub fn tick(&self) {
+        // Handle periodic world updates
+        self.respawn_monsters();
     }
 }

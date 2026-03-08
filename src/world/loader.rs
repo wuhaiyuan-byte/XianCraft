@@ -1,4 +1,4 @@
-use crate::world_model::{ItemZoneData, NpcPrototype, NpcZoneData, Room, WorldConfig, ZoneData, Quest, QuestRegistry};
+use crate::world_model::{ItemZoneData, MultiZoneData, NpcPrototype, NpcZoneData, Room, WorldConfig, ZoneData, Quest, QuestRegistry};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
@@ -29,10 +29,20 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
         for entry in fs::read_dir(maps_dir)? {
             let entry = entry?;
             let zone_str = fs::read_to_string(entry.path())?;
-            let zone: ZoneData = serde_json::from_str(&zone_str)
-                .with_context(|| format!("Failed to parse zone data from {:?}", entry.path()))?;
-            for room in zone.rooms {
-                rooms.insert(room.id.clone(), room);
+            
+            // Try parsing as single ZoneData first, then MultiZoneData
+            if let Ok(zone) = serde_json::from_str::<ZoneData>(&zone_str) {
+                for room in zone.rooms {
+                    rooms.insert(room.id.clone(), room);
+                }
+            } else if let Ok(multi_zone) = serde_json::from_str::<MultiZoneData>(&zone_str) {
+                for zone in multi_zone.zones {
+                    for room in zone.rooms {
+                        rooms.insert(room.id.clone(), room);
+                    }
+                }
+            } else {
+                return Err(anyhow::anyhow!("Failed to parse zone data from {:?}", entry.path()));
             }
         }
     }
@@ -46,13 +56,13 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
         let entry = entry?;
         let file_name = entry.file_name().into_string().unwrap_or_default();
 
-        // A simple convention: load any file that ends with 'npcs.json'
-        if file_name.ends_with("npcs.json") {
+        // A simple convention: load any file that ends with 'npcs.json' or 'monster_registry.json'
+        if file_name.ends_with("npcs.json") || file_name == "monster_registry.json" {
             let npc_str = fs::read_to_string(entry.path())
-                .with_context(|| format!("Failed to read NPC file at {:?}", entry.path()))?;
+                .with_context(|| format!("Failed to read NPC/Monster file at {:?}", entry.path()))?;
 
             let npc_zone_data: NpcZoneData = serde_json::from_str(&npc_str)
-                .with_context(|| format!("Failed to parse NPC zone data from {:?}", entry.path()))?;
+                .with_context(|| format!("Failed to parse NPC/Monster data from {:?}", entry.path()))?;
 
             for (id, proto) in npc_zone_data.entities {
                 npc_prototypes.insert(id, proto);
