@@ -4,6 +4,8 @@ pub enum Command {
     Perform { skill: String, target: Option<String> },
     Look,
     Score,
+    Talk { target: String },
+    Quest,
     Say { message: String },
     Go { direction: String },
     Get { item: String },
@@ -11,6 +13,8 @@ pub enum Command {
     Inventory,
     Alias { name: Option<String>, command: Option<String> },
     Unalias { name: String },
+    Rest,
+    Work,
     Invalid(String),
     Unknown(String),
 }
@@ -46,6 +50,16 @@ pub fn parse(input: &str) -> Command {
         }
         "look" => Command::Look,
         "score" | "status" | "attr" => Command::Score,
+        "talk" | "chat" => {
+            if let Some(target) = parts.next() {
+                Command::Talk {
+                    target: target.to_string(),
+                }
+            } else {
+                Command::Invalid("Talk to who?".to_string())
+            }
+        }
+        "quest" | "qs" => Command::Quest,
         "say" => {
             let message = parts.collect::<Vec<&str>>().join(" ");
             if message.is_empty() {
@@ -55,21 +69,33 @@ pub fn parse(input: &str) -> Command {
             }
         }
         "go" => {
-             if let Some(direction_part) = parts.next() {
-                let direction_lowercase = direction_part.to_lowercase(); // Fix: Store the temporary value
-                let direction = match direction_lowercase.as_str() { // Now borrow from the longer-lived value
+            if let Some(dir) = parts.next() {
+                let dir_lower = dir.to_lowercase();
+                let direction = match dir_lower.as_str() {
                     "n" => "north",
                     "s" => "south",
                     "e" => "east",
                     "w" => "west",
                     "u" => "up",
                     "d" => "down",
-                    full_dir => full_dir,
+                    full => full,
                 };
                 Command::Go { direction: direction.to_string() }
             } else {
                 Command::Invalid("Go where?".to_string())
             }
+        }
+        "n" | "s" | "e" | "w" | "u" | "d" => {
+            let direction = match command.to_lowercase().as_str() {
+                "n" => "north",
+                "s" => "south",
+                "e" => "east",
+                "w" => "west",
+                "u" => "up",
+                "d" => "down",
+                _ => command,
+            };
+            Command::Go { direction: direction.to_string() }
         }
         "get" | "take" => {
             if let Some(item) = parts.next() {
@@ -108,6 +134,8 @@ pub fn parse(input: &str) -> Command {
                 Command::Invalid("Unalias what?".to_string())
             }
         }
+        "rest" => Command::Rest,
+        "work" | "job" => Command::Work,
         _ => Command::Unknown(command.to_string()),
     }
 }

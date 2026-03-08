@@ -1,7 +1,7 @@
 use crate::world_model::NpcPrototype;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Npc {
     pub instance_id: u64,       // Unique ID for this specific instance
     pub prototype_id: u32,        // ID of the prototype it's based on
@@ -9,6 +9,7 @@ pub struct Npc {
     pub description: String,
     pub current_room: String,     // The room where the NPC is currently located
     pub combat_target: Option<u64>, // Player ID if in combat
+    pub dialog_id: Option<String>,
 }
 
 impl Npc {
@@ -26,6 +27,7 @@ impl Npc {
             description: prototype.description.clone(),
             current_room: room_id,
             combat_target: None,
+            dialog_id: prototype.dialog_id.clone(),
         }
     }
 }

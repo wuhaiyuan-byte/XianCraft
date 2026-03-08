@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 pub struct DynamicData {
     pub players: HashMap<u64, PlayerLocation>,
     pub npcs: HashMap<u64, Npc>, // Instance of an NPC in the world
+    pub room_items: HashMap<String, Vec<u32>>,
 }
 
 // Tracks a player's location.
@@ -25,9 +26,15 @@ pub struct WorldState {
 
 impl WorldState {
     pub fn new(static_data: Arc<StaticWorldData>) -> Self {
+        let mut room_items = HashMap::new();
+        for (room_id, room) in &static_data.rooms {
+            room_items.insert(room_id.clone(), room.items.clone());
+        }
+
         let mut dynamic_data = DynamicData {
             players: HashMap::new(),
             npcs: HashMap::new(),
+            room_items,
         };
 
         // Spawn initial NPCs from prototypes
@@ -74,5 +81,26 @@ impl WorldState {
             .filter(|npc| npc.current_room == room_id)
             .cloned()
             .collect()
+    }
+
+    pub fn get_items_in_room(&self, room_id: &str) -> Vec<u32> {
+        let data = self.dynamic_data.lock().unwrap();
+        data.room_items.get(room_id).cloned().unwrap_or_default()
+    }
+
+    pub fn add_item_to_room(&self, room_id: &str, item_id: u32) {
+        let mut data = self.dynamic_data.lock().unwrap();
+        data.room_items.entry(room_id.to_string()).or_default().push(item_id);
+    }
+
+    pub fn remove_item_from_room(&self, room_id: &str, item_id: u32) -> bool {
+        let mut data = self.dynamic_data.lock().unwrap();
+        if let Some(items) = data.room_items.get_mut(room_id) {
+            if let Some(pos) = items.iter().position(|&x| x == item_id) {
+                items.remove(pos);
+                return true;
+            }
+        }
+        false
     }
 }

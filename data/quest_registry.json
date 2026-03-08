@@ -1,0 +1,69 @@
+{
+  "quests": {
+    "tutorial_1": {
+      "id": "tutorial_1",
+      "name": "初入凡尘",
+      "description": "熟悉一下村子的环境。",
+      "steps": [
+        {
+          "step_id": 0,
+          "type": "move",
+          "target_id": "village_square",
+          "description": "前往村中心广场"
+        },
+        {
+          "step_id": 1,
+          "type": "talk",
+          "target_id": "1002",
+          "dialog_id": "village_head_intro",
+          "description": "与老村长谈谈"
+        }
+      ],
+      "rewards": {
+        "shell": 100,
+        "potential": 50
+      }
+    },
+    "q102": {
+      "id": "q102",
+      "name": "勤能补拙",
+      "description": "在竹林或泉水进行 5 次劳作，感悟天地灵气。",
+      "steps": [
+        {
+          "step_id": 0,
+          "type": "talk",
+          "target_id": "1002",
+          "dialog_id": "quest_q102_start",
+          "description": "向老村长请教修行之法"
+        },
+        {
+          "step_id": 1,
+          "type": "move",
+          "target_id": "bamboo_forest",
+          "description": "前往青翠竹林"
+        },
+        {
+          "step_id": 2,
+          "type": "work",
+          "target_id": "any",
+          "description": "进行 5 次伐木劳作"
+        },
+        {
+          "step_id": 3,
+          "type": "talk",
+          "target_id": "1002",
+          "dialog_id": "quest_q102_finish",
+          "description": "回广场向村长报告感悟"
+        }
+      ],
+      "rewards": {
+        "shell": 200,
+        "potential": 100,
+        "exp": 50,
+        "items": [
+          1001
+        ]
+      }
+    }
+  }
+}

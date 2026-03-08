@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Convert from 'ansi-to-html';
 import './index.css'; // Make sure our styles are imported
 
 //---------- Type Definitions ----------//
@@ -50,6 +51,11 @@ type ClientMessage =
 
 //---------- React Component ----------//
 
+const convert = new Convert({
+  newline: true,
+  escapeXML: true,
+});
+
 function App() {
   // State Management
   const [messages, setMessages] = useState<string[]>(['--- Please enter your name to begin ---']);
@@ -64,6 +70,12 @@ function App() {
   // Refs for precise element control
   const ws = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const usernameRef = useRef('');
+
+  // Sync ref with state for the websocket closure
+  useEffect(() => {
+    usernameRef.current = username;
+  }, [username]);
 
   // Effect to lock screen height and prevent layout jumps on mobile when keyboard appears.
   useEffect(() => {
@@ -73,10 +85,6 @@ function App() {
     };
 
     setVh(); // Set it once on initial load
-
-    // Optional: Re-calculate on resize, though for this app's purpose, initial is often enough.
-    // window.addEventListener('resize', setVh);
-    // return () => window.removeEventListener('resize', setVh);
   }, []);
   
   // Scroll to bottom when new messages arrive
@@ -92,12 +100,19 @@ function App() {
     const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
     const socket = new WebSocket(wsUrl);
     ws.current = socket;
+    let heartbeatInterval: number | null = null;
 
     socket.onopen = () => {
       console.log('Connection established.');
-      socket.send(JSON.stringify({ type: 'Login', user_id: username }));
+      socket.send(JSON.stringify({ type: 'Login', user_id: usernameRef.current }));
       setIsLoggedIn(true);
-      setMessages(['--- Welcome! Connecting to the realm... ---']);
+
+      // Heartbeat to keep connection alive
+      heartbeatInterval = window.setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'Command', command: 'heartbeat' }));
+        }
+      }, 30000);
     };
 
     socket.onmessage = (event) => {
@@ -105,14 +120,16 @@ function App() {
 
       switch (serverMessage.type) {
         case 'Description':
-        case 'Info':
-          const formattedContent = serverMessage.payload.replace(/\n/g, '<br />');
-          setMessages(prev => [...prev, formattedContent]);
+        case 'Info': {
+          const html = convert.toHtml(serverMessage.payload);
+          setMessages(prev => [...prev, html]);
           break;
-        case 'Error':
-            const errorContent = serverMessage.payload.replace(/\n/g, '<br />');
-            setMessages(prev => [...prev, `<span class="text-red-500">${errorContent}</span>`]);
-            break;
+        }
+        case 'Error': {
+          const html = convert.toHtml(serverMessage.payload);
+          setMessages(prev => [...prev, `<span class="text-red-500">${html}</span>`]);
+          break;
+        }
         case 'FullState':
           setFullPlayerState(serverMessage.state);
           setDerivedStats(serverMessage.state.derived);
@@ -127,6 +144,7 @@ function App() {
 
     socket.onclose = () => {
       console.log('Connection closed.');
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       setMessages(prev => [...prev, '--- Disconnected. Please refresh to reconnect. ---']);
       setIsLoggedIn(false);
       setShouldConnect(false);
@@ -135,15 +153,17 @@ function App() {
 
     socket.onerror = (error) => {
       console.error('WebSocket error:', error);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       setMessages(prev => [...prev, '--- Connection error. Is the server running? ---']);
       setIsLoggedIn(false);
       setShouldConnect(false);
     };
 
     return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       if (socket.readyState === WebSocket.OPEN) socket.close();
     };
-  }, [shouldConnect, username]);
+  }, [shouldConnect]);
 
   // Action Handlers
   const sendMessage = useCallback((message: ClientMessage) => {
@@ -182,7 +202,7 @@ function App() {
   //---------- JSX Rendering ----------//
 
   const renderMessages = () => (
-    <div className="whitespace-pre-wrap">
+    <div className="whitespace-pre-wrap font-mono">
       {messages.map((msg, index) => (
         <div key={index} dangerouslySetInnerHTML={{ __html: msg }} />
       ))}
@@ -223,13 +243,11 @@ function App() {
   const renderMobileQuickActions = () => (
       <div className="md:hidden p-2 bg-gray-800 border-t border-gray-600">
         <div className="grid grid-cols-4 gap-1">
-            {/* Row 1 - Added onMouseDown to prevent focus stealing */}
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('look')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">Look</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('go n')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">N</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('status')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">Status</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('attr')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">Attr</button>
             
-            {/* Row 2 - Added onMouseDown to prevent focus stealing */}
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('go w')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">W</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('go s')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">S</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleCommandAction('go e')} className="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-1 rounded">E</button>
@@ -254,7 +272,7 @@ function App() {
               onKeyPress={handleKeyPress}
               className="bg-gray-700 text-white flex-grow rounded-l px-4 py-2 focus:outline-none"
               placeholder="Enter your name"
-              autoFocus // autoFocus is fine on the very first login screen.
+              autoFocus
             />
             <button onMouseDown={(e) => e.preventDefault()} onClick={handleLogin} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r">Login</button>
           </div>
