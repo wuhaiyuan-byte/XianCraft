@@ -4,3 +4,7 @@ pub mod quest_interaction_tests;
 pub mod attack_quest_test;
 pub mod full_quest_workflow_test;
 pub mod quest_reward_tests;
+pub mod game_demo;
+pub mod visual_refinement_demo;
+pub mod welcome_demo;
+pub mod welcome_demo_anime;

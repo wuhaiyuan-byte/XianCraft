@@ -6,7 +6,7 @@
     {
       "id": "genesis_altar",
       "name": "引灵台",
-      "description": "白玉平台散发着柔和光芒。这里是灵魂的摆渡站，也是修仙之路的起点。",
+      "description": "欢迎来到全服统一的新手降临点！这里是自带‘灵魂摆渡’特效的白玉平台。空气中飘着淡淡的樱花瓣（为什么修仙界会有樱花？），你的修仙物语即将从这里开始。请确认你的主角光环已经充能完毕！",
       "coords": { "x": 0, "y": 0 },
       "exits": { "south": "village_square" },
       "flags": ["safe", "indoors"],
@@ -16,7 +16,7 @@
     {
       "id": "village_square",
       "name": "凡尘村广场",
-      "description": "广场中央有一块巨大的试金石，老村长常在此指点新人。",
+      "description": "凡尘村的中心大舞台！那块巨大的试金石简直就是这种RPG游戏里的‘打分板’。老村长正以一种‘虽然我是NPC但我有重要剧情’的姿态站着。快去对话吧，说不定能触发什么隐藏的SSR任务呢？",
       "coords": { "x": 0, "y": -1 },
       "exits": { "north": "genesis_altar", "east": "bamboo_forest", "west": "spirit_spring" },
       "flags": ["safe"],
@@ -26,7 +26,7 @@
     {
       "id": "bamboo_forest",
       "name": "青翠竹林",
-      "description": "翠绿的竹林随风摇曳，非常适合凡人在此劳作，感悟天地韵律。",
+      "description": "这就是传说中的新手肝帝区！每一根竹子都绿得发亮，仿佛在喊着‘快来work我呀’。这里是感悟天地韵律（其实就是打工）的绝佳场所。如果不在这里挥汗如雨，怎么能攒够聘请剑灵少女的灵贝呢？",
       "coords": { "x": 1, "y": -1 },
       "exits": { "west": "village_square", "north": "deep_bamboo_1" },
       "flags": [],
@@ -36,7 +36,7 @@
     {
       "id": "spirit_spring",
       "name": "灵溪泉",
-      "description": "清澈的泉水从石缝中涌出，汇成一池碧波，蕴含着淡淡的灵气。",
+      "description": "透明度100%的梦幻灵泉！池水波光粼粼，自带柔光滤镜。这绝对是那种‘不小心撞见某位重要女性NPC洗澡并开启恋爱线’的经典圣地。虽然目前只有你一个人，但喝一口泉水感觉整个人都萌萌哒了~",
       "coords": { "x": -1, "y": -1 },
       "exits": { "east": "village_square" },
       "flags": [],
