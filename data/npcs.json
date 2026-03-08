@@ -1,8 +1,31 @@
-[
-  {
-    "id": 1,
-    "name": "Goblin",
-    "description": "A small, green creature with pointy ears and a wicked grin.",
-    "starting_room": 1
+{
+  "zone": "fanchen_village",
+  "entities": {
+    "1001": {
+      "name": "引路仙子",
+      "title": "引导者",
+      "description": "她身着一袭淡青色的长裙，悬浮在半空。",
+      "level": 99,
+      "ai": "friendly",
+      "flags": ["invincible", "no_kill"],
+      "dialog_id": "dlg_fairy_01"
+    },
+    "1002": {
+      "name": "老村长",
+      "title": "凡尘村之长",
+      "description": "虽然看起来是个凡人，但双眼却极有神采。",
+      "level": 10,
+      "ai": "friendly",
+      "flags": ["quest_giver"],
+      "dialog_id": "dlg_chief_01"
+    },
+    "1003": {
+      "name": "樵夫大叔",
+      "title": "伐木工",
+      "description": "结实的肌肉显示出他长年累月的劳作成果。",
+      "level": 5,
+      "ai": "friendly",
+      "scripts": { "on_work": "trigger_woodcutting" }
+    }
   }
-]
+}

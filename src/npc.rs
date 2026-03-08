@@ -1,44 +1,31 @@
-use crate::world::world::World;
-use std::sync::Arc;
+use crate::world_model::NpcPrototype;
+use serde::Deserialize;
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Npc {
-    pub id: u64,
+    pub instance_id: u64,       // Unique ID for this specific instance
+    pub prototype_id: u32,        // ID of the prototype it's based on
     pub name: String,
     pub description: String,
-    pub current_room: String,
-    pub combat_target: Option<u64>,
+    pub current_room: String,     // The room where the NPC is currently located
+    pub combat_target: Option<u64>, // Player ID if in combat
 }
 
 impl Npc {
-    pub fn new(id: u64, name: &str, description: &str, starting_room: &str) -> Self {
+    // Creates a new NPC instance from a prototype and a starting room.
+    pub fn from_prototype(
+        instance_id: u64,
+        prototype_id: u32,
+        prototype: &NpcPrototype,
+        room_id: String,
+    ) -> Self {
         Self {
-            id,
-            name: name.to_string(),
-            description: description.to_string(),
-            current_room: starting_room.to_string(),
+            instance_id,
+            prototype_id,
+            name: prototype.name.clone(),
+            description: prototype.description.clone(),
+            current_room: room_id,
             combat_target: None,
-        }
-    }
-
-    pub async fn tick(&mut self, world: Arc<World>) {
-        if let Some(_target_id) = self.combat_target {
-            // Attack back
-            // println!("{} attacks player {}", self.name, target_id);
-        } else {
-            // Check for players in the same room
-            if let Some(room) = world.get_room(&self.current_room) {
-                let players_in_room = room.get_player_ids();
-                if !players_in_room.is_empty() {
-                    // 50% chance to attack a random player
-                    if rand::random::<f32>() < 0.5 {
-                        if let Some(target_id) = players_in_room.get(rand::random::<usize>() % players_in_room.len()) {
-                            self.combat_target = Some(*target_id);
-                            // println!("{} attacks player {}", self.name, target_id);
-                        }
-                    }
-                }
-            }
         }
     }
 }

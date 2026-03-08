@@ -1,0 +1,8 @@
+{
+  "__desc": "Global game settings, realms, and sects.",
+  "realms": [
+    { "name": "凡人", "level_required": 0 },
+    { "name": "炼气", "level_required": 10 },
+    { "name": "筑基", "level_required": 20 }
+  ]
+}

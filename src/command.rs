@@ -12,6 +12,7 @@ pub enum Command {
     Alias { name: Option<String>, command: Option<String> },
     Unalias { name: String },
     Invalid(String),
+    Unknown(String),
 }
 
 pub fn parse(input: &str) -> Command {
@@ -107,6 +108,6 @@ pub fn parse(input: &str) -> Command {
                 Command::Invalid("Unalias what?".to_string())
             }
         }
-        _ => Command::Invalid(format!("Unknown command: '{}'", command)),
+        _ => Command::Unknown(command.to_string()),
     }
 }

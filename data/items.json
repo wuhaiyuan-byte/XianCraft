@@ -1,0 +1,26 @@
+{
+  "zone": "fanchen_village",
+  "items": {
+    "2001": {
+      "name": "新手木剑",
+      "type": "weapon",
+      "description": "一把练习用的木剑，虽然简陋但很轻便。",
+      "stats": { "atk": 5, "weight": 2 },
+      "price": { "value": 20, "currency": "shell" }
+    },
+    "2002": {
+      "name": "基础引灵丹",
+      "type": "consumable",
+      "description": "丹药散发着淡淡草药味，是凡人踏入炼气期的关键。",
+      "effect": { "type": "realm_break", "target": "qi_cond" },
+      "price": { "value": 200, "currency": "shell" }
+    },
+    "2003": {
+      "name": "辟谷丹",
+      "type": "food",
+      "description": "吃下一颗，三日不饿。",
+      "effect": { "type": "restore_satiety", "value": 100 },
+      "price": { "value": 10, "currency": "shell" }
+    }
+  }
+}

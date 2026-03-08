@@ -1,103 +1,87 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Holds the core attributes of a player.
-#[derive(Debug, Clone)]
-pub struct PlayerAttributes {
-    pub strength: u32,
-    pub dexterity: u32,
-    pub constitution: u32,
-    pub intelligence: u32,
-}
-
-/// Represents a player in the game world.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Player {
     pub id: u64,
     pub name: String,
-    pub qi: u32,
-    pub max_qi: u32,
-    pub neili: u32,
-    pub max_neili: u32,
-    pub attributes: PlayerAttributes,
-    pub skills: HashMap<String, u32>,
-    pub busy: u32, // Cooldown timer for actions
+    pub state: PlayerState,
     pub aliases: HashMap<String, String>,
 }
 
 impl Player {
-    /// Creates a new player with default stats.
     pub fn new(id: u64, name: String) -> Self {
-        let attributes = PlayerAttributes {
-            strength: 10,
-            dexterity: 10,
-            constitution: 10,
-            intelligence: 10,
-        };
-
-        let mut player = Self {
+        Self {
             id,
             name,
-            qi: 0, // Calculated below
-            max_qi: 0, // Calculated below
-            neili: 0, // Calculated below
-            max_neili: 0, // Calculated below
-            attributes,
-            skills: HashMap::new(),
-            busy: 0,
+            state: PlayerState::new_player_default(),
             aliases: HashMap::new(),
-        };
-
-        player.update_derived_stats();
-        // Set current qi and neili to max after calculation
-        player.qi = player.max_qi;
-        player.neili = player.max_neili;
-        
-        player
-    }
-    
-    /// Updates derived stats like max_qi and max_neili based on attributes.
-    pub fn update_derived_stats(&mut self) {
-        self.max_qi = self.calculate_max_qi();
-        self.max_neili = self.calculate_max_neili();
-    }
-
-    /// Calculates max qi based on constitution.
-    fn calculate_max_qi(&self) -> u32 {
-        self.attributes.constitution * 10
-    }
-
-    /// Calculates max neili based on intelligence.
-    fn calculate_max_neili(&self) -> u32 {
-        self.attributes.intelligence * 5
-    }
-
-    /// Reduces player's qi by a certain amount.
-    pub fn take_damage(&mut self, amount: u32) {
-        self.qi = self.qi.saturating_sub(amount);
-    }
-
-    /// Heals the player by a certain amount.
-    pub fn heal(&mut self, amount: u32) {
-        self.qi = (self.qi + amount).min(self.max_qi);
-    }
-
-    /// Consumes neili if available. Returns true if successful.
-    pub fn consume_neili(&mut self, amount: u32) -> bool {
-        if self.neili >= amount {
-            self.neili -= amount;
-            true
-        } else {
-            false
         }
     }
+}
 
-    /// Checks if the player is alive.
-    pub fn is_alive(&self) -> bool {
-        self.qi > 0
-    }
+/// BaseAttributes 存储了角色的核心基础属性。
+/// 这些属性在角色创建时确定，并通过升级或特殊事件来提升。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BaseAttributes {
+    pub strength: i32,      // 力量: 影响物理攻击的伤害
+    pub agility: i32,       // 身法: 影响命中率、闪避率和攻击速度
+    pub constitution: i32,  // 根骨: 影响生命值和伤害减免
+    pub comprehension: i32, // 悟性: 影响学习技能的速度和魔法效果
+}
 
-    /// Learns a new skill or updates an existing one.
-    pub fn learn_skill(&mut self, skill_name: String, skill_level: u32) {
-        self.skills.insert(skill_name, skill_level);
+/// DerivedStats 存储了由基础属性计算得出的战斗属性。
+/// 这些是角色在战斗中会实时变化的数值。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DerivedStats {
+    pub hp: i32,            // 当前生命值
+    pub max_hp: i32,        // 最大生命值
+    pub mp: i32,            // 当前法力值
+    pub max_mp: i32,        // 最大法力值
+    pub stamina: i32,       // 当前耐力值
+    pub max_stamina: i32,   // 最大耐力值
+}
+
+/// Progression 存储了角色的成长和发展相关的属性。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Progression {
+    pub level: i32,         // 等级
+    pub experience: i32,    // 当前经验值
+    pub potential: i32,     // 潜能点，用于提升基础属性
+}
+
+/// PlayerState 是一个聚合了所有角色状态的顶级结构体。
+/// 它代表了一个角色的完整快照，可以被序列化以进行持久化存储。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PlayerState {
+    pub base: BaseAttributes,
+    pub derived: DerivedStats,
+    pub progression: Progression,
+}
+
+impl PlayerState {
+    /// 创建一个新手玩家的默认状态。
+    pub fn new_player_default() -> Self {
+        Self {
+            base: BaseAttributes {
+                strength: 10,
+                agility: 10,
+                constitution: 10,
+                comprehension: 10,
+            },
+            derived: DerivedStats {
+                hp: 50,
+                max_hp: 50,
+                mp: 20,
+                max_mp: 20,
+                stamina: 100,
+                max_stamina: 100,
+            },
+            progression: Progression {
+                level: 1,
+                experience: 0,
+                potential: 0,
+            },
+        }
     }
 }
