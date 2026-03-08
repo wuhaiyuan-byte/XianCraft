@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod tests;
 pub mod command;
 pub mod npc;
 pub mod world;

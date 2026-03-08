@@ -36,6 +36,7 @@ pub struct Player {
     pub wallet: Wallet,
     
     pub realm_level: u16,
+    pub realm_sub_level: u16,
     pub exp: u64,
     pub potential: u64,
     pub age: u16,
@@ -43,6 +44,7 @@ pub struct Player {
     
     pub hp: u32,
     pub hp_max: u32,
+    pub atk: u32,
     pub qi: u32,
     pub qi_max: u32,
     pub stamina: u32,
@@ -81,13 +83,15 @@ impl Player {
                 crystal: 0,
                 shell: 100,
             },
-            realm_level: 0,
+            realm_level: 1,
+            realm_sub_level: 1,
             exp: 0,
             potential: 0,
             age: 16,
             lifespan: 100,
             hp: 0,
             hp_max: 0,
+            atk: 0,
             qi: 0,
             qi_max: 0,
             stamina: 100,
@@ -108,7 +112,8 @@ impl Player {
     }
 
     pub fn update_vitals(&mut self) {
-        self.hp_max = self.stats.con * 10 + (self.realm_level as u32 * 100);
+        self.hp_max = self.stats.con * 10 + (self.realm_sub_level as u32 * 30);
+        self.atk = 2 * self.realm_sub_level as u32;
         
         let mut max_qi = (self.stats.con + self.stats.int) * 5;
         if self.root_id == "pseudo" {
@@ -120,6 +125,35 @@ impl Player {
         if self.hp > self.hp_max { self.hp = self.hp_max; }
         if self.qi > self.qi_max { self.qi = self.qi_max; }
         if self.stamina > self.stamina_max { self.stamina = self.stamina_max; }
+    }
+
+    pub fn add_exp(&mut self, amount: u64) -> String {
+        self.exp += amount;
+        let mut output = String::new();
+
+        while self.realm_sub_level < 9 {
+            let need_exp = 100 * (self.realm_sub_level as u64).pow(2);
+            if self.exp >= need_exp {
+                self.exp -= need_exp;
+                self.realm_sub_level += 1;
+                self.update_vitals();
+                output.push_str(&format!("\n\x1b[1;32m【突破】你周身灵气激荡，顺利晋升至[炼气第{}层]！\x1b[0m", self.realm_sub_level));
+            } else {
+                break;
+            }
+        }
+        output.push_str(&self.check_promotion());
+        output
+    }
+
+    pub fn check_promotion(&self) -> String {
+        if self.realm_level == 1 && self.realm_sub_level == 9 {
+            let need_exp = 100 * 9u64.pow(2);
+            if self.exp >= need_exp {
+                return "\n\x1b[1;33m你感到修为已达凡界瓶颈，需寻得筑基丹方可尝试突破筑基期。\x1b[0m".to_string();
+            }
+        }
+        "".to_string()
     }
 
     pub fn is_stamina_enough(&self, amount: u32) -> bool {
@@ -174,8 +208,8 @@ impl Player {
             output.push_str(&format!("\x1b[1;36m● 潜能: \x1b[1;32m+{}\x1b[0m\n", potential));
         }
         if let Some(exp) = rewards.exp {
-            self.exp += exp;
-            output.push_str(&format!("\x1b[1;36m● 修为: \x1b[1;32m+{}\x1b[0m\n", exp));
+            let level_up_msg = self.add_exp(exp);
+            output.push_str(&format!("\x1b[1;36m● 修为: \x1b[1;32m+{}\x1b[0m{}\n", exp, level_up_msg));
         }
         output.push_str("\x1b[1;33m--------------------------------------\x1b[0m");
         output
@@ -196,9 +230,21 @@ impl Player {
     }
 
     pub fn get_score_string(&self, config: &WorldConfig) -> String {
-        let realm_name = config.realms.get(self.realm_level as usize)
-            .map(|r| r.name.as_str())
-            .unwrap_or("未知");
+        let realm_name = match self.realm_level {
+            1 => match self.realm_sub_level {
+                1 => "炼气一层",
+                2 => "炼气二层",
+                3 => "炼气三层",
+                4 => "炼气四层",
+                5 => "炼气五层",
+                6 => "炼气六层",
+                7 => "炼气七层",
+                8 => "炼气八层",
+                9 => "炼气九层",
+                _ => "炼气期",
+            },
+            _ => "未知",
+        };
 
         let hp_bar = Self::get_bar(self.hp, self.hp_max, 10);
         let qi_bar = Self::get_bar(self.qi, self.qi_max, 10);
@@ -215,7 +261,7 @@ impl Player {
         output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
         output.push_str(&format!("\x1b[1;37m力量(STR): \x1b[1;31m{:<4}\x1b[1;37m    身法(DEX): \x1b[1;32m{:<4}\x1b[0m\n", self.stats.str, self.stats.dex));
         output.push_str(&format!("\x1b[1;37m悟性(INT): \x1b[1;36m{:<4}\x1b[1;37m    根骨(CON): \x1b[1;35m{:<4}\x1b[0m\n", self.stats.int, self.stats.con));
-        output.push_str(&format!("\x1b[1;37m福缘(LUK): \x1b[1;33m{:<4}\x1b[0m\n", self.stats.luk));
+        output.push_str(&format!("\x1b[1;37m福缘(LUK): \x1b[1;33m{:<4}\x1b[1;37m    攻击(ATK): \x1b[1;31m{:<4}\x1b[0m\n", self.stats.luk, self.atk));
         output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
         output.push_str(&format!("\x1b[1;37m修为: \x1b[1;32m{:<10}\x1b[1;37m  潜能: \x1b[1;33m{}\x1b[0m\n", self.exp, self.potential));
         output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
