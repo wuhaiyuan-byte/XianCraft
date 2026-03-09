@@ -33,15 +33,15 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 # We use a "distroless" image for a minimal and secure final container.
 FROM gcr.io/distroless/static-debian12
 
-# Set the working directory for the final image
-WORKDIR /app
+# Copy the compiled binary from the builder stage to the /server (absolute path).
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server /server
 
-# Copy the compiled binary from the builder stage to the final image.
-COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server .
+# Copy the data directory to /data (absolute path).
+COPY --from=builder /usr/src/app/data /data
 
-# Copy the data directory from the builder stage to the final image.
-COPY --from=builder /usr/src/app/data ./data
+# Set the environment variable for the data directory.
+# This tells our application where to find the game data inside the container.
+ENV DATA_DIR=/data
 
-# Set the entrypoint of the container to our application binary.
-# Cloud Run will automatically use port 8080.
-ENTRYPOINT ["./server"]
+# Set the entrypoint to the absolute path of our application binary.
+ENTRYPOINT ["/server"]
