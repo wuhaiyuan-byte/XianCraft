@@ -19,6 +19,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
+    env,
     net::SocketAddr,
     sync::{Arc, Mutex},
     time::SystemTime as StdSystemTime,
@@ -84,7 +85,12 @@ pub async fn run(world_state: WorldState) {
         .route("/ws", get(websocket_handler))
         .with_state(app_state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse::<u16>()
+        .unwrap_or(3000);
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("listening on {}", addr);
     axum::serve(tokio::net::TcpListener::bind(&addr).await.unwrap(), app.into_make_service())
         .await
