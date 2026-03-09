@@ -26,8 +26,8 @@ COPY data ./data
 
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# --- DEBUG: List the contents of the release directory ---
-RUN ls -lA /usr/src/app/target/x86_64-unknown-linux-musl/release
+# --- DEBUG: Check for dynamic dependencies ---
+RUN ldd /usr/src/app/target/x86_64-unknown-linux-musl/release/server
 
 # --- Stage 3: Create the final, small runtime image ---
 FROM gcr.io/distroless/static-debian12
