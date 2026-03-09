@@ -1,4 +1,3 @@
-
 {
   "hosting": {
     "public": "client/dist",
@@ -9,8 +8,11 @@
     ],
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/ws",
+        "run": {
+          "serviceId": "xiancraft-server",
+          "region": "us-central1"
+        }
       }
     ]
   }
