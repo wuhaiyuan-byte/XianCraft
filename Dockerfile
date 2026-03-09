@@ -42,4 +42,5 @@ COPY --from=frontend_builder /usr/src/client/dist /dist
 ENV DATA_DIR=/data
 ENV STATIC_DIR=/dist
 
-ENTRYPOINT ["/server"]
+# Temporarily override ENTRYPOINT to debug the filesystem
+ENTRYPOINT ["ls", "-lR", "/"]
