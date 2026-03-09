@@ -31,7 +31,7 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 
 # --- Stage 2: Create the final, small runtime image ---
 # We use a "distroless" image for a minimal and secure final container.
-FROM gcr.io/distroless/cc-static
+FROM gcr.io/distroless/static-debian12
 
 # Copy the compiled binary from the builder stage to the final image.
 COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/xiancraft /
