@@ -1,0 +1,63 @@
+name: Deploy to Firebase Hosting and Cloud Run
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build_and_deploy_server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_XIANCRAFT }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t us-central1-docker.pkg.dev/xiancraft-4fc0a/xiancraft-repo/xiancraft-server:latest .
+          docker push us-central1-docker.pkg.dev/xiancraft-4fc0a/xiancraft-repo/xiancraft-server:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy xiancraft-server \
+            --image=us-central1-docker.pkg.dev/xiancraft-4fc0a/xiancraft-repo/xiancraft-server:latest \
+            --region=us-central1 \
+            --platform=managed \
+            --allow-unauthenticated
+
+  build_and_deploy_client:
+    needs: build_and_deploy_server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install client dependencies
+        run: cd client && npm install
+
+      - name: Build client application
+        run: cd client && npm run build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_XIANCRAFT }}'
+          projectId: 'xiancraft-4fc0a'
+          channelId: live
