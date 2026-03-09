@@ -24,9 +24,11 @@ RUN chmod +x /usr/src/app/target/x86_64-unknown-linux-musl/release/server
 # --- Stage 3: Create the final, small runtime image ---
 FROM gcr.io/distroless/static-debian12
 
-COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server /server
-COPY --from=builder /usr/src/app/data /data
-COPY --from=frontend_builder /usr/src/client/dist /dist
+# Copy artifacts and explicitly set ownership to the 'nonroot' user
+# that distroless images use by default. This is crucial for file access.
+COPY --chown=nonroot:nonroot --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server /server
+COPY --chown=nonroot:nonroot --from=builder /usr/src/app/data /data
+COPY --chown=nonroot:nonroot --from=frontend_builder /usr/src/client/dist /dist
 
 # Set environment variables for the application.
 # The PORT variable will be supplied by Cloud Run.
