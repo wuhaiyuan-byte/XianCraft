@@ -4,7 +4,6 @@
 FROM rust:1.78 as builder
 
 # Install the C toolchain (linker) required for static MUSL builds.
-# This is the key fix that was missing before.
 RUN apt-get update && apt-get install -y musl-tools
 
 # Install the Rust target for musl.
@@ -14,7 +13,6 @@ RUN rustup target add x86_64-unknown-linux-musl
 WORKDIR /usr/src/app
 
 # Create a Cargo configuration file to explicitly use the musl-gcc linker.
-# This ensures Cargo uses the tools we just installed.
 RUN mkdir .cargo
 RUN echo '[target.x86_64-unknown-linux-musl]\nlinker = "musl-gcc"' > .cargo/config.toml
 
@@ -25,11 +23,9 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 
 # Copy the static game data into the build environment.
-# This is necessary so we can copy it to the final image.
 COPY data ./data
 
 # Build the application in release mode for performance.
-# This will now succeed because the linker is present and configured.
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
 
@@ -37,14 +33,15 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 # We use a "distroless" image for a minimal and secure final container.
 FROM gcr.io/distroless/static-debian12
 
-# Copy the compiled binary from the builder stage to the final image.
-COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server /
+# Set the working directory for the final image
+WORKDIR /app
 
-# --- THE CRITICAL FIX ---
+# Copy the compiled binary from the builder stage to the final image.
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server .
+
 # Copy the data directory from the builder stage to the final image.
-# The application needs this directory to load its initial state.
 COPY --from=builder /usr/src/app/data ./data
 
 # Set the entrypoint of the container to our application binary.
 # Cloud Run will automatically use port 8080.
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["./server"]
