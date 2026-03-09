@@ -34,8 +34,8 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 FROM gcr.io/distroless/static-debian12
 
 # Copy the compiled binary from the builder stage to the final image.
-COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/xiancraft /
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server /
 
 # Set the entrypoint of the container to our application binary.
 # Cloud Run will automatically use port 8080.
-ENTRYPOINT ["/xiancraft"]
+ENTRYPOINT ["/server"]
