@@ -1,0 +1,11 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'build'
+  - '--tag=gcr.io/xiancraft-4fc0a/xiancraft-server'
+  - '--file=Dockerfile'
+  - '.'
+images:
+- 'gcr.io/xiancraft-4fc0a/xiancraft-server'
+options:
+  logging: CLOUD_LOGGING_ONLY
