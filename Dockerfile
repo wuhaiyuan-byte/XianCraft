@@ -13,7 +13,11 @@ FROM ekidd/rust-musl-builder:latest as builder
 # The source code is copied to /home/rust/src, which is the standard for this image.
 COPY --chown=rust:rust . .
 
-# Run the build. The toolchain in this image is pre-configured for static linking.
+# First, update the crate index and dependencies to ensure we can find recent versions.
+# This is the fix for the axum version resolution failure.
+RUN cargo update
+
+# Now, run the build. The toolchain in this image is pre-configured for static linking.
 # No --target flag is needed.
 RUN cargo build --release
 
