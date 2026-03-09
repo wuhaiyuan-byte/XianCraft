@@ -28,8 +28,8 @@ COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server
 COPY --from=builder /usr/src/app/data /data
 COPY --from=frontend_builder /usr/src/client/dist /dist
 
-# Set environment variables for the application. 
-# Cloud Run will inject its own PORT, but these are good for clarity and local running.
+# Set environment variables for the application.
+# The PORT variable will be supplied by Cloud Run.
 ENV DATA_DIR=/data
 ENV STATIC_DIR=/dist
 
