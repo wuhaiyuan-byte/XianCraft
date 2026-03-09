@@ -6,6 +6,9 @@ FROM rust:1.78 as builder
 # Create a new, empty workspace in the build environment.
 WORKDIR /usr/src/app
 
+# Install the musl target, which is needed for creating a static binary
+RUN rustup target add x86_64-unknown-linux-musl
+
 # Copy the Cargo manifest files. This is done separately to leverage Docker's layer caching.
 # If these files don't change, Docker won't re-download dependencies.
 COPY Cargo.toml Cargo.lock ./
