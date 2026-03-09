@@ -6,26 +6,34 @@ RUN npm install
 COPY client/ ./
 RUN npm run build
 
-# --- Stage 2: Build the application using a dedicated static MUSL builder ---
-# This image is purpose-built to create fully static Rust binaries.
+# --- Stage 2: Build the application with dependency caching ---
+# This is the optimized build stage for a Rust project.
 FROM ekidd/rust-musl-builder:latest as builder
 
-# The source code is copied to /home/rust/src, which is the standard for this image.
-COPY --chown=rust:rust . .
+WORKDIR /home/rust/src
 
-# First, update the crate index and dependencies to ensure we can find recent versions.
-# This is the fix for the axum version resolution failure.
-RUN cargo update
+# Step 2a: Build dependencies first to leverage Docker layer caching.
+# Copy only the manifests.
+COPY --chown=rust:rust Cargo.toml Cargo.lock ./
 
-# Now, run the build. The toolchain in this image is pre-configured for static linking.
-# No --target flag is needed.
+# Step 2b: Create a dummy main.rs to allow a successful dependency-only build.
+RUN mkdir -p src && echo "fn main() {println!(\"Building dependencies...\");}" > src/main.rs
+
+# Step 2c: Build the dummy project. This compiles and caches all dependencies.
+# This layer will only be re-run if Cargo.toml or Cargo.lock change.
+RUN cargo build --release
+
+# Step 2d: Copy the actual application source code, overwriting the dummy main.rs.
+COPY --chown=rust:rust ./src ./src
+
+# Step 2e: Build the actual application. This will be much faster as all
+# dependencies are already compiled and cached.
 RUN cargo build --release
 
 # --- Stage 3: Create the final, small runtime image ---
 FROM gcr.io/distroless/static-debian12
 
 # Copy the truly static binary from the builder.
-# The output path is different due to the builder image's structure.
 COPY --chown=nonroot:nonroot --from=builder /home/rust/src/target/x86_64-unknown-linux-musl/release/server /server
 
 # Copy the necessary data and static web assets, setting correct ownership.
