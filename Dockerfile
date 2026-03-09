@@ -24,6 +24,10 @@ COPY Cargo.toml Cargo.lock ./
 # Copy your actual source code.
 COPY src ./src
 
+# Copy the static game data into the build environment.
+# This is necessary so we can copy it to the final image.
+COPY data ./data
+
 # Build the application in release mode for performance.
 # This will now succeed because the linker is present and configured.
 RUN cargo build --release --target x86_64-unknown-linux-musl
@@ -35,6 +39,11 @@ FROM gcr.io/distroless/static-debian12
 
 # Copy the compiled binary from the builder stage to the final image.
 COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/server /
+
+# --- THE CRITICAL FIX ---
+# Copy the data directory from the builder stage to the final image.
+# The application needs this directory to load its initial state.
+COPY --from=builder /usr/src/app/data ./data
 
 # Set the entrypoint of the container to our application binary.
 # Cloud Run will automatically use port 8080.
