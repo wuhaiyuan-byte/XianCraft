@@ -1,4 +1,4 @@
-name: Build and Deploy to Cloud Run
+name: Build and Deploy to Cloud Run (Native)
 
 on:
   push:
@@ -21,15 +21,12 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Build and Push Docker Image
-        run: |
-          gcloud builds submit --tag gcr.io/xiancraft-4fc0a/xiancraft-server . --project=xiancraft-4fc0a
-
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run from Source
         run: |
           gcloud run deploy xiancraft-server \
-            --image gcr.io/xiancraft-4fc0a/xiancraft-server \
+            --source . \
             --region us-central1 \
             --platform managed \
             --allow-unauthenticated \
+            --set-env-vars="DATA_DIR=./data" \
             --project=xiancraft-4fc0a
