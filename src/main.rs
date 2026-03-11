@@ -3,9 +3,14 @@ use server::world::loader::load_all_data;
 use server::world::world_state::WorldState;
 use std::env;
 use std::sync::Arc;
+use colored::control;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Force colored output, even when not in a TTY.
+    // This is crucial for the MUD client to receive colors.
+    control::set_override(true);
+
     // Use the DATA_DIR environment variable if it's set, otherwise default to "./data".
     // This allows for flexible configuration between local dev and containerized deployment.
     let data_path = env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string());
