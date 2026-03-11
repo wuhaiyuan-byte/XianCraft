@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.86"
 axum = { version = "0.7.9", features = ["ws"] }
+colored = "2.1.0"
 futures-util = { version = "0.3.30", features = ["sink"] }
 rand = "0.8.5"
 serde = { version = "1.0.204", features = ["derive"] }
