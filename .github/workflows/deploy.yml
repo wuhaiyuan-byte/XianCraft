@@ -51,32 +51,33 @@ jobs:
       # --- Deployment Steps ---
       - name: Deploy to Server
         run: |
-          echo "Creating/Updating systemd service file..."
+          # Create/Update the service file
           echo '[Unit]
           Description=XianCraft Game Server
           After=network.target
-
           [Service]
           Environment=DATA_DIR=/srv/xiancraft/data
           Environment=STATIC_DIR=/srv/xiancraft/frontend
           Environment=PORT=3000
-
           User=xiancraft-runner
           Group=xiancraft-runner
           WorkingDirectory=/srv/xiancraft
           ExecStart=/srv/xiancraft/server
           Restart=always
           RestartSec=5s
-
           [Install]
           WantedBy=multi-user.target' | sudo tee /etc/systemd/system/xiancraft.service
 
-          echo "Reloading systemd daemon to apply changes..."
+          # Reload systemd to recognize the new/changed service file
           sudo systemctl daemon-reload
-          
-          echo "Ensuring service is enabled to start on boot..."
           sudo systemctl enable xiancraft.service
 
+          # --- Stop the service BEFORE deploying new files ---
+          echo "Stopping service before deployment..."
+          # Use '|| true' to prevent the script from failing if the service is not already running
+          sudo systemctl stop xiancraft.service || true
+
+          # Create directories and deploy files
           echo "Creating deployment directories..."
           sudo mkdir -p /srv/xiancraft/data
           sudo mkdir -p /srv/xiancraft/frontend
@@ -89,5 +90,6 @@ jobs:
           echo "Setting correct ownership..."
           sudo chown -R xiancraft-runner:xiancraft-runner /srv/xiancraft
 
+          # --- Restart the service AFTER deployment ---
           echo "Restarting XianCraft service..."
           sudo systemctl restart xiancraft.service
