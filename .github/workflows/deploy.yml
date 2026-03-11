@@ -27,15 +27,17 @@ jobs:
 
       - name: Build Rust application
         run: |
-          # Source the cargo environment to add cargo to the PATH
           source "$HOME/.cargo/env"
           cargo build --release --verbose
 
       - name: Deploy
         run: |
-          echo "Deploying the application..."
-          # Use absolute path for the binary to make sudoers configuration straightforward.
-          # The GITHUB_WORKSPACE variable is provided by the GitHub Actions runner.
-          sudo mkdir -p /srv/xiancraft
-          sudo cp "${GITHUB_WORKSPACE}/target/release/server" /srv/xiancraft/server
+          echo "Deploying to /srv/xiancraft..."
+          # The runner user will have ownership of the target directory,
+          # so mkdir and cp do not require sudo.
+          mkdir -p /srv/xiancraft
+          cp "${GITHUB_WORKSPACE}/target/release/server" /srv/xiancraft/server
+          
+          echo "Restarting service..."
+          # Only the systemctl command requires sudo.
           sudo systemctl restart xiancraft.service
