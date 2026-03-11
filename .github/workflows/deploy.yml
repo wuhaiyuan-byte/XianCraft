@@ -1,32 +1,38 @@
-name: Build and Deploy to Cloud Run (Native)
 
+name: Deploy XianCraft
 on:
   push:
     branches:
-      - master
-
+      - main
 jobs:
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-
-      - name: Deploy to Cloud Run from Source
+          toolchain: stable
+          override: true
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('''**/Cargo.lock''') }}
+      - name: Build Rust application
+        run: cargo build --release --verbose
+      - name: Deploy
         run: |
-          gcloud run deploy xiancraft-server \
-            --source . \
-            --region us-central1 \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars="DATA_DIR=./data" \
-            --project=xiancraft-4fc0a
+          echo "Deploying the application..."
+          # Create the deployment directory if it doesn't exist
+          sudo mkdir -p /srv/xiancraft
+          # Copy the new binary to the deployment directory
+          sudo cp target/release/server /srv/xiancraft/server
+          # Restart the systemd service to apply the changes
+          sudo systemctl restart xiancraft.service
