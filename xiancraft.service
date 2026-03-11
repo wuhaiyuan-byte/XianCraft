@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 # !!重要!!: 请将这里的 'your_user' 替换成您服务器上用来运行 runner 的用户名
-User=blueleaf
-Group=blueleaf
+User=xiancraft-runner
+Group=xiancraft-runner
 
 # !!重要!!: 确保您的程序可执行文件最终会放在这里
 WorkingDirectory=/srv/xiancraft
