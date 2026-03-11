@@ -1,7 +1,9 @@
+use crate::world_model::{Quest, QuestRewards, WorldConfig};
+use colored::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use crate::world_model::{WorldConfig, Quest};
 
+// ... (struct definitions remain the same) ...
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Wallet {
     pub crystal: u64,
@@ -60,6 +62,7 @@ pub struct Player {
     pub quest_counts: HashMap<String, u32>,
     pub inventory: Vec<u32>,
 }
+
 
 impl Player {
     pub fn new(id: u64, name: String) -> Self {
@@ -132,13 +135,13 @@ impl Player {
                 if quest.quest_type == "kill" && quest.target_id == monster_id {
                     let count = status.kill_counts.entry(monster_id.to_string()).or_insert(0);
                     *count += 1;
-                    
+
                     let target_count = quest.target_count.unwrap_or(1);
-                    output.push_str(&format!("\n\x1b[1;32m[任务进度] {}: {}/{} \x1b[0m", quest.name, count, target_count));
-                    
+                    output.push_str(&format!("\n{}", format!("[任务进度] {}: {}/{}", quest.name, count, target_count).green().bold()));
+
                     if *count >= target_count {
                         status.is_completed = true;
-                        output.push_str(&format!("\n\x1b[1;33m你已达成任务“{}”的目标！\x1b[0m", quest.name));
+                        output.push_str(&format!("\n{}", format!("你已达成任务“{}”的目标！", quest.name).yellow().bold()));
                     }
                 }
             }
@@ -172,7 +175,7 @@ impl Player {
                 self.exp -= need_exp;
                 self.realm_sub_level += 1;
                 self.update_vitals();
-                output.push_str(&format!("\n\x1b[1;32m【突破】你周身灵气激荡，顺利晋升至[炼气第{}层]！\x1b[0m", self.realm_sub_level));
+                output.push_str(&format!("\n{}", format!("【突破】你周身灵气激荡，顺利晋升至[炼气第{}层]！", self.realm_sub_level).green().bold()));
             } else {
                 break;
             }
@@ -185,7 +188,7 @@ impl Player {
         if self.realm_level == 1 && self.realm_sub_level == 9 {
             let need_exp = 100 * 9u64.pow(2);
             if self.exp >= need_exp {
-                return "\n\x1b[1;33m你感到修为已达凡界瓶颈，需寻得筑基丹方可尝试突破筑基期。\x1b[0m".to_string();
+                return format!("\n{}", "你感到修为已达凡界瓶颈，需寻得筑基丹方可尝试突破筑基期。".yellow().bold());
             }
         }
         "".to_string()
@@ -227,82 +230,106 @@ impl Player {
         }
     }
 
-    pub fn grant_reward(&mut self, rewards: &crate::world_model::QuestRewards) -> String {
-        let mut output = String::new();
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str("\x1b[1;32m[ 任务圆满完成！ ]\x1b[0m\n");
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str("\x1b[1;37m获得奖励：\x1b[0m\n");
-        
+    pub fn grant_reward(&mut self, rewards: &QuestRewards) -> String {
+        let border = "--------------------------------------".yellow().bold();
+        let mut output = format!("{}\n{}
+{}\n{}\n", 
+            border, 
+            "[ 任务圆满完成！ ]".green().bold(),
+            border,
+            "获得奖励：".white().bold()
+        );
+
         if let Some(shell) = rewards.shell {
             self.wallet.shell += shell;
-            output.push_str(&format!("\x1b[1;36m● 灵贝: \x1b[1;32m+{}\x1b[0m\n", shell));
+            output.push_str(&format!("{} {} {}\n", "● 灵贝:".cyan(), "+".green().bold(), shell.to_string().green().bold()));
         }
         if let Some(potential) = rewards.potential {
             self.potential += potential;
-            output.push_str(&format!("\x1b[1;36m● 潜能: \x1b[1;32m+{}\x1b[0m\n", potential));
+            output.push_str(&format!("{} {} {}\n", "● 潜能:".cyan(), "+".green().bold(), potential.to_string().green().bold()));
         }
         if let Some(exp) = rewards.exp {
             let level_up_msg = self.add_exp(exp);
-            output.push_str(&format!("\x1b[1;36m● 修为: \x1b[1;32m+{}\x1b[0m{}\n", exp, level_up_msg));
+            output.push_str(&format!("{} {} {}{}\n", "● 修为:".cyan(), "+".green().bold(), exp.to_string().green().bold(), level_up_msg));
         }
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m");
+        output.push_str(&border.to_string());
         output
     }
-
-    fn get_bar(current: u32, max: u32, width: usize) -> String {
+    
+    // Refactored helper function to draw a WoW-style bar
+    fn draw_bar(label: &str, current: u32, max: u32, color: Color, width: usize) -> String {
         let fill_width = if max > 0 {
             ((current as f32 / max as f32) * width as f32).round() as usize
         } else {
             0
         };
         let fill_width = fill_width.min(width);
-        let mut bar = String::from("[");
-        for _ in 0..fill_width { bar.push('█'); }
-        for _ in fill_width..width { bar.push('░'); }
-        bar.push(']');
-        bar
+        
+        let fill = "█".repeat(fill_width).color(color);
+        let empty = "░".repeat(width - fill_width).truecolor(50, 50, 50); // Dark grey background
+
+        format!("{:<5} {}{} {:>4}/{:<4}", label.white(), fill, empty, current, max)
     }
 
-    pub fn get_score_string(&self, config: &WorldConfig) -> String {
+    // Refactored to use the WoW-style UI
+    pub fn get_score_string(&self, _config: &WorldConfig) -> String {
         let realm_name = match self.realm_level {
-            1 => match self.realm_sub_level {
-                1 => "炼气一层",
-                2 => "炼气二层",
-                3 => "炼气三层",
-                4 => "炼气四层",
-                5 => "炼气五层",
-                6 => "炼气六层",
-                7 => "炼气七层",
-                8 => "炼气八层",
-                9 => "炼气九层",
-                _ => "炼气期",
-            },
-            _ => "未知",
+            1 => format!("炼气{}层", match self.realm_sub_level {
+                1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五", 
+                6 => "六", 7 => "七", 8 => "八", 9 => "九", _ => "?",
+            }),
+            _ => "未知".to_string(),
         };
 
-        let hp_bar = Self::get_bar(self.hp, self.hp_max, 10);
-        let qi_bar = Self::get_bar(self.qi, self.qi_max, 10);
-        let stamina_bar = Self::get_bar(self.stamina, self.stamina_max, 10);
+        let border = "══════════════════════════════════════════════".truecolor(100, 100, 100);
+        let border_line = format!("╔{}╗", border);
+        let end_line = format!("╚{}╝", border);
+        let separator = format!("╟{}╢", "─".repeat(46).truecolor(100, 100, 100));
 
         let mut output = String::new();
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str(&format!("\x1b[1;37m姓名：\x1b[1;32m{:<10}\x1b[1;37m  境界：\x1b[1;35m{}\x1b[0m\n", self.name, realm_name));
-        output.push_str(&format!("\x1b[1;37m灵根：\x1b[1;34m{:<10}\x1b[1;37m  年龄：\x1b[1;36m{}/{}\x1b[0m\n", self.root_id, self.age, self.lifespan));
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str(&format!("\x1b[1;37m生命: \x1b[1;31m{} \x1b[0m{:>4}/{:<4}\n", hp_bar, self.hp, self.hp_max));
-        output.push_str(&format!("\x1b[1;37m真元: \x1b[1;34m{} \x1b[0m{:>4}/{:<4}\n", qi_bar, self.qi, self.qi_max));
-        output.push_str(&format!("\x1b[1;37m体力: \x1b[1;32m{} \x1b[0m{:>4}/{:<4}\n", stamina_bar, self.stamina, self.stamina_max));
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str(&format!("\x1b[1;37m力量(STR): \x1b[1;31m{:<4}\x1b[1;37m    身法(DEX): \x1b[1;32m{:<4}\x1b[0m\n", self.stats.str, self.stats.dex));
-        output.push_str(&format!("\x1b[1;37m悟性(INT): \x1b[1;36m{:<4}\x1b[1;37m    根骨(CON): \x1b[1;35m{:<4}\x1b[0m\n", self.stats.int, self.stats.con));
-        output.push_str(&format!("\x1b[1;37m福缘(LUK): \x1b[1;33m{:<4}\x1b[1;37m    攻击(ATK): \x1b[1;31m{:<4}\x1b[0m\n", self.stats.luk, self.atk));
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str(&format!("\x1b[1;37m修为: \x1b[1;32m{:<10}\x1b[1;37m  潜能: \x1b[1;33m{}\x1b[0m\n", self.exp, self.potential));
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m\n");
-        output.push_str(&format!("\x1b[1;37m储物空间资产：\x1b[0m\n"));
-        output.push_str(&format!("\x1b[1;37m灵晶: \x1b[1;35m{:<10}\x1b[1;37m  灵贝: \x1b[1;36m{}\x1b[0m\n", self.wallet.crystal, self.wallet.shell));
-        output.push_str("\x1b[1;33m--------------------------------------\x1b[0m");
+        output.push_str(&format!("{}\n", border_line));
+        output.push_str(&format!("║ {}{}{}{}{}{}{}{}{}{}\n",
+            "姓名：".white(), self.name.green().bold(),
+            " ".normal(),
+            "境界：".white(), realm_name.truecolor(163, 53, 238).bold(), // Epic Purple
+            " ".normal(),
+            "年龄：".white(), self.age.to_string().cyan(), "/".white(), self.lifespan.to_string().cyan()
+        ));
+        output.push_str(&format!("{}\n", separator));
+
+        // Vitals using the new draw_bar function
+        let hp_bar = Self::draw_bar("生命", self.hp, self.hp_max, Color::TrueColor { r: 196, g: 31, b: 59 }, 20);
+        let qi_bar = Self::draw_bar("真元", self.qi, self.qi_max, Color::TrueColor { r: 105, g: 204, b: 240 }, 20);
+        let stamina_bar = Self::draw_bar("体力", self.stamina, self.stamina_max, Color::TrueColor { r: 255, g: 245, b: 105 }, 20);
+        output.push_str(&format!("║  {}  ║\n", hp_bar));
+        output.push_str(&format!("║  {}  ║\n", qi_bar));
+        output.push_str(&format!("║  {}  ║\n", stamina_bar));
+        output.push_str(&format!("{}\n", separator));
+
+        // Stats
+        output.push_str(&format!("║  {}{:<4}    {}{:<4}    {}{:<4}  ║\n",
+            "力量: ".white(), self.stats.str.to_string().truecolor(255, 128, 0), // Orange
+            "身法: ".white(), self.stats.dex.to_string().green(),
+            "悟性: ".white(), self.stats.int.to_string().cyan()
+        ));
+        output.push_str(&format!("║  {}{:<4}    {}{:<4}    {}{:<4}  ║\n",
+            "根骨: ".white(), self.stats.con.to_string().truecolor(163, 53, 238), // Purple
+            "福缘: ".white(), self.stats.luk.to_string().yellow(),
+            "攻击: ".white(), self.atk.to_string().truecolor(196, 31, 59) // Red
+        ));
+        output.push_str(&format!("{}\n", separator));
+
+        // EXP and Wallet
+        output.push_str(&format!("║  {}{:<12} {} {:<10}  ║\n",
+            "修为: ".white(), self.exp.to_string().green(),
+            "潜能: ".white(), self.potential.to_string().yellow()
+        ));
+         output.push_str(&format!("║  {}{:<12} {} {:<10}  ║\n",
+            "灵晶: ".white(), self.wallet.crystal.to_string().truecolor(163, 53, 238), // Purple
+            "灵贝: ".white(), self.wallet.shell.to_string().cyan()
+        ));
+
+        output.push_str(&format!("{}\n", end_line));
         output
     }
 

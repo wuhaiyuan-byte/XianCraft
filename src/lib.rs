@@ -1,3 +1,4 @@
+
 #[cfg(test)]
 mod tests;
 pub mod command;
@@ -30,6 +31,9 @@ use tower_http::services::ServeDir;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+// Import the colored crate functionality
+use colored::*;
+
 use crate::command::{parse, Command};
 use crate::world::player::{Player, PlayerQuestStatus};
 use crate::world::world_state::WorldState;
@@ -60,6 +64,50 @@ struct PlayerSession {
     user_id: Option<String>,
     sender: mpsc::Sender<Message>,
 }
+
+// This function builds the welcome message using truecolor.
+fn build_welcome_message() -> String {
+    // Define our palette
+    let pink = (255, 105, 180); // Hot Pink
+    let purple = (218, 112, 214); // Orchid
+    let white = (255, 255, 255);
+
+    let line1 = format!("      {}  {}  {}",
+        "✧･ﾟ: *✧･ﾟ:*".truecolor(pink.0, pink.1, pink.2),
+        "ଘ(◕‿◕✿)ଓ".truecolor(purple.0, purple.1, purple.2),
+        "*:･ﾟ✧*:･ﾟ✧".truecolor(pink.0, pink.1, pink.2)
+    );
+
+    let line2 = format!("    {}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".truecolor(purple.0, purple.1, purple.2));
+
+    let line3 = format!("       {} {}",
+        "(つ◕౪◕)つ".truecolor(pink.0, pink.1, pink.2),
+        "⚔️  剑 灵 少 女 の 招 待  ⚔️".bold().truecolor(white.0, white.1, white.2)
+    );
+    
+    let line4 = line2.clone();
+
+    let line6 = format!("      {}", "“欧尼酱！快握紧这把灵剑，一起踏上登仙之路吧~”".bold().truecolor(pink.0, pink.1, pink.2));
+    
+    let line8 = format!("             {}  {}  {}  {}  {}",
+        "✦".truecolor(purple.0, purple.1, purple.2),
+        "✧".truecolor(pink.0, pink.1, pink.2),
+        "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧".truecolor(white.0, white.1, white.2),
+        "✧".truecolor(pink.0, pink.1, pink.2),
+        "✦".truecolor(purple.0, purple.1, purple.2)
+    );
+
+    format!("{}
+{}
+{}
+{}
+
+{}
+
+{}
+", line1, line2, line3, line4, line6, line8)
+}
+
 
 pub async fn run(world_state: WorldState) {
     tracing_subscriber::registry()
@@ -126,7 +174,7 @@ async fn game_loop(app_state: Arc<AppState>) {
                 let room_id = app_state.world_state.get_player_room_id(session.player.id).unwrap_or_default();
                 if (room_id == "bamboo_forest" || room_id == "spirit_spring") && now - session.player.last_input_time > 30 {
                     let hint = ServerMessage::Info { 
-                        payload: "\x1b[1;36m[提示]：你现在应该尝试输入 work 指令来进行伐木。记得随时输入 score 查看你的体力值。\x1b[0m".to_string() 
+                        payload: "[提示]：你现在应该尝试输入 work 指令来进行伐木。记得随时输入 score 查看你的体力值。".cyan().to_string() 
                     };
                     if let Ok(json) = serde_json::to_string(&hint) {
                         let _ = session.sender.try_send(Message::Text(json));
@@ -147,15 +195,17 @@ async fn websocket_handler(
 
 fn get_full_room_description(room_id: &str, world_state: &WorldState) -> String {
     if let Some(room) = world_state.get_room(room_id) {
-        let mut full_desc = format!("{}\n{}", room.name, room.description);
+        let mut full_desc = format!("{}
+{}", room.name.cyan().bold(), room.description);
 
         let npcs_in_room = world_state.get_npcs_in_room(room_id);
         if !npcs_in_room.is_empty() {
             let npc_names: Vec<String> = npcs_in_room
                 .iter()
-                .map(|npc| format!("\x1b[32m{}\x1b[0m", npc.name))
+                .map(|npc| npc.name.green().to_string())
                 .collect();
-            full_desc.push_str(&format!("\n● {}", npc_names.join(", ")));
+            full_desc.push_str(&format!("
+● {}", npc_names.join(", ")));
         }
 
         let room_items = world_state.get_items_in_room(room_id);
@@ -166,13 +216,15 @@ fn get_full_room_description(room_id: &str, world_state: &WorldState) -> String 
                 .map(|item| item.name.clone())
                 .collect();
             if !item_names.is_empty() {
-                full_desc.push_str(&format!("\n{}", item_names.join(", ")));
+                full_desc.push_str(&format!("
+{}", item_names.join(", ")));
             }
         }
 
         if !room.exits.is_empty() {
             let exit_keys: Vec<String> = room.exits.keys().cloned().collect();
-            full_desc.push_str(&format!("\n出口: [{}]", exit_keys.join(", ")));
+            full_desc.push_str(&format!("
+{}", format!("出口: [{}]", exit_keys.join(", ")).white()));
         }
 
         full_desc
@@ -248,10 +300,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             };
 
                             if let Some(session_sender) = maybe_sender {
-                                let mut welcome_content = format!("{}\n\n{}", world.static_data.config.welcome_message, get_full_room_description("genesis_altar", world));
+                                // *** THIS IS THE CHANGED LINE ***
+                                let mut welcome_content = format!("{}
+
+{}", build_welcome_message(), get_full_room_description("genesis_altar", world));
                                 
                                 if tutorial_given {
-                                    welcome_content.push_str("\n\x1b[1;33m[任务提示] 你收到了一项新任务：初入凡尘。输入 'qs' 可随时查看任务进度。\x1b[0m");
+                                    welcome_content.push_str(&format!("
+{}", "[任务提示] 你收到了一项新任务：初入凡尘。输入 'qs' 可随时查看任务进度。".yellow().bold()));
                                 }
 
                                 let welcome_msg = ServerMessage::Description { payload: welcome_content };
@@ -387,7 +443,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     let mut rng = rand::thread_rng();
                                     let msg = pool.choose(&mut rng).unwrap().to_string();
                                     messages_to_send.push(ServerMessage::Description { payload: msg });
-                                    messages_to_send.push(ServerMessage::Info { payload: "\x1b[1;32m获得奖励：灵贝+20，修为+5，潜能+2\x1b[0m".to_string() });
+                                    messages_to_send.push(ServerMessage::Info { payload: format!("{}", "获得奖励：灵贝+20，修为+5，潜能+2".green().bold()) });
 
                                     let mut q102_finished = false;
                                     for status in &mut session.player.active_quests {
@@ -401,7 +457,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                         }
                                     }
                                     if q102_finished {
-                                        messages_to_send.push(ServerMessage::Description { payload: "\n\x1b[1;35m“【机缘】随着最后一斧劈下，你感到一股清凉的气流顺着指尖流向全身。你对天地的感悟达到了新的高度！请回广场向村长报告。”\x1b[0m".to_string() });
+                                        messages_to_send.push(ServerMessage::Description { payload: format!("{}", "【机缘】随着最后一斧劈下，你感到一股清凉的气流顺着指尖流向全身。你对天地的感悟达到了新的高度！请回广场向村长报告。".magenta().bold()) });
                                     }
                                 }
                             }
@@ -428,11 +484,13 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                         let mut payload = get_full_room_description(&next_room_id_str, world);
                                         for (name, is_finished, rewards) in quest_updates {
                                             if is_finished {
-                                                payload.push_str(&format!("\n\x1b[1;33m[任务完成] {}\x1b[0m", name));
+                                                payload.push_str(&format!("
+{}", format!("[任务完成] {}", name).yellow().bold()));
                                                 let reward_text = session.player.grant_reward(&rewards);
                                                 messages_to_send.push(ServerMessage::Info { payload: reward_text });
                                             } else {
-                                                payload.push_str(&format!("\n\x1b[1;32m[任务更新] {}\x1b[0m", name));
+                                                payload.push_str(&format!("
+{}", format!("[任务更新] {}", name).green().bold()));
                                             }
                                         }
                                         session.player.active_quests.retain(|q| {
@@ -490,7 +548,8 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     let mut payload = format!("{}: {}", npc.name, final_dialog);
                                     if !quest_name.is_empty() {
                                         if quest_finished {
-                                            payload.push_str(&format!("\n\x1b[1;33m[任务完成] {}\x1b[0m", quest_name));
+                                            payload.push_str(&format!("
+{}", format!("[任务完成] {}", quest_name).yellow().bold()));
                                             if let Some(r) = quest_reward {
                                                 let reward_text = session.player.grant_reward(&r);
                                                 messages_to_send.push(ServerMessage::Info { payload: reward_text });
@@ -519,11 +578,13 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                                         is_completed: false,
                                                         kill_counts: HashMap::new(),
                                                     });
-                                                    payload.push_str("\n\x1b[1;33m[任务接取] 老村长交给了你一个新的任务：勤能补拙。输入 'qs' 查看详情。\x1b[0m");
+                                                    payload.push_str(&format!("
+{}", "[任务接取] 老村长交给了你一个新的任务：勤能补拙。输入 'qs' 查看详情。".yellow().bold()));
                                                 }
                                             }
                                         } else {
-                                            payload.push_str(&format!("\n\x1b[1;32m[任务更新] {}\x1b[0m", quest_name));
+                                            payload.push_str(&format!("
+{}", format!("[任务更新] {}", quest_name).green().bold()));
                                         }
                                     } else {
                                         // NPC doesn't have an active quest step for player, check if they can start a new quest
@@ -537,7 +598,8 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                                     is_completed: false,
                                                     kill_counts: HashMap::new(),
                                                 });
-                                                payload.push_str("\n\x1b[1;33m[任务接取] 老村长交给了你一个新的任务：勤能补拙。输入 'qs' 查看详情。\x1b[0m");
+                                                payload.push_str(&format!("
+{}", "[任务接取] 老村长交给了你一个新的任务：勤能补拙。输入 'qs' 查看详情。".yellow().bold()));
                                             }
                                         }
                                     }
@@ -557,7 +619,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                         } else if session.player.active_quests.iter().any(|q| q.quest_id == quest_id) {
                                             messages_to_send.push(ServerMessage::Error { payload: "你已经接取过这个任务了。".to_string() });
                                         } else if session.player.accept_quest(quest) {
-                                            messages_to_send.push(ServerMessage::Info { payload: format!("\x1b[1;33m[任务接取] 你接取了任务：{}。输入 'qs' 可查看详细进度。\x1b[0m", quest.name) });
+                                            messages_to_send.push(ServerMessage::Info { payload: format!("{}", format!("[任务接取] 你接取了任务：{}。输入 'qs' 可查看详细进度。", quest.name).yellow().bold()) });
                                         } else {
                                             messages_to_send.push(ServerMessage::Error { payload: "接取任务失败。".to_string() });
                                         }
@@ -598,7 +660,8 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 if session.player.inventory.is_empty() {
                                     messages_to_send.push(ServerMessage::Info { payload: "你两手空空。".to_string() });
                                 } else {
-                                    let mut inv_text = String::from("\x1b[1;33m你身上带着：\x1b[0m\n");
+                                    let mut inv_text = format!("{}
+", "你身上带着：".yellow().bold());
                                     for item_id in &session.player.inventory {
                                         let item_name = world.static_data.item_prototypes.get(item_id)
                                             .map(|p| p.name.clone())
@@ -612,7 +675,8 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 if session.player.active_quests.is_empty() {
                                     messages_to_send.push(ServerMessage::Info { payload: "当前没有任何进行中的任务。".to_string() });
                                 } else {
-                                    let mut output = String::from("\x1b[1;33m进行中的任务：\x1b[0m\n");
+                                    let mut output = format!("{}
+", "进行中的任务：".yellow().bold());
                                     for status in &session.player.active_quests {
                                         if let Some(quest) = world.static_data.quests.get(&status.quest_id) {
                                             let step_desc = if quest.quest_type == "kill" {
@@ -646,9 +710,14 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                         }
                                     }
                                     if !available.is_empty() {
-                                        let mut board_msg = String::from("\n\x1b[1;33m告示牌上贴着以下悬赏：\x1b[0m\n");
-                                        board_msg.push_str(&available.join("\n"));
-                                        board_msg.push_str("\n\x1b[1;37m输入 'accept <任务ID>' 即可接取。\x1b[0m");
+                                        let mut board_msg = format!("{}
+", "
+告示牌上贴着以下悬赏：".yellow().bold());
+                                        board_msg.push_str(&available.join("
+"));
+                                        board_msg.push_str(&format!("
+{}", "
+输入 'accept <任务ID>' 即可接取.".white().bold()));
                                         messages_to_send.push(ServerMessage::Info { payload: board_msg });
                                     }
                                 }
