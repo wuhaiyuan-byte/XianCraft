@@ -52,14 +52,11 @@ jobs:
       - name: Deploy to Server
         run: |
           echo "Creating/Updating systemd service file..."
-          # Use 'tee' to write the service file with sudo privileges.
-          # The file content is quoted to handle special characters and newlines.
           echo '[Unit]
           Description=XianCraft Game Server
           After=network.target
 
           [Service]
-          # Environment variables for the application
           Environment=DATA_DIR=/srv/xiancraft/data
           Environment=STATIC_DIR=/srv/xiancraft/frontend
           Environment=PORT=3000
@@ -81,12 +78,13 @@ jobs:
           sudo systemctl enable xiancraft.service
 
           echo "Creating deployment directories..."
+          sudo mkdir -p /srv/xiancraft/data
           sudo mkdir -p /srv/xiancraft/frontend
 
           echo "Deploying files..."
-          sudo cp "${{ GITHUB_WORKSPACE }}/target/release/server" /srv/xiancraft/server
-          sudo cp -r "${{ GITHUB_WORKSPACE }}/data/." /srv/xiancraft/data/
-          sudo cp -r "${{ GITHUB_WORKSPACE }}/client/dist/." /srv/xiancraft/frontend/
+          sudo cp "${{ github.workspace }}/target/release/server" /srv/xiancraft/server
+          sudo cp -r "${{ github.workspace }}/data/." /srv/xiancraft/data/
+          sudo cp -r "${{ github.workspace }}/client/dist/." /srv/xiancraft/frontend/
           
           echo "Setting correct ownership..."
           sudo chown -R xiancraft-runner:xiancraft-runner /srv/xiancraft
