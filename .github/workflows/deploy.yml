@@ -1,20 +1,26 @@
 
 name: Deploy XianCraft
-on:
+
+# This workflow is triggered when code is pushed to the 'master' branch.
+on: 
   push:
     branches:
-      - main
+      - master
+
 jobs:
   build-and-deploy:
     runs-on: self-hosted
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+
       - name: Cache Cargo dependencies
         uses: actions/cache@v3
         with:
@@ -25,14 +31,13 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('''**/Cargo.lock''') }}
+
       - name: Build Rust application
         run: cargo build --release --verbose
+
       - name: Deploy
         run: |
           echo "Deploying the application..."
-          # Create the deployment directory if it doesn't exist
           sudo mkdir -p /srv/xiancraft
-          # Copy the new binary to the deployment directory
           sudo cp target/release/server /srv/xiancraft/server
-          # Restart the systemd service to apply the changes
           sudo systemctl restart xiancraft.service
