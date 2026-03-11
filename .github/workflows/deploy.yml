@@ -1,4 +1,3 @@
-
 name: Deploy XianCraft
 
 # This workflow is triggered when code is pushed to the 'master' branch.
@@ -35,9 +34,55 @@ jobs:
       - name: Build Rust application
         run: cargo build --release --verbose
 
-      - name: Deploy
+      - name: Run Diagnostics
+        id: diagnostics
+        # This step is expected to fail on the `sudo` commands, 
+        # so we allow it to continue to gather all possible information.
+        continue-on-error: true
         run: |
-          echo "Deploying the application..."
-          sudo mkdir -p /srv/xiancraft
-          sudo cp target/release/server /srv/xiancraft/server
-          sudo systemctl restart xiancraft.service
+          echo "--- Running System Diagnostics in the Runner Environment ---"
+          
+          echo "---"
+          echo "[1] Who am I running as?"
+          whoami
+          
+          echo "---"
+          echo "[2] What are my user and group memberships?"
+          id
+          
+          echo "---"
+          echo "[3] What is the sudo version?"
+          sudo --version
+          
+          echo "---"
+          echo "[4] Listing sudo permissions for current user. THIS IS EXPECTED TO FAIL."
+          sudo -l
+          
+          echo "---"
+          echo "[5] Listing files in /etc/sudoers.d/"
+          ls -la /etc/sudoers.d/
+          
+          echo "---"
+          echo "[6] Reading the main /etc/sudoers file:"
+          sudo cat /etc/sudoers
+          
+          echo "---"
+          echo "[7] Reading all files in /etc/sudoers.d/ directory:"
+          # This loop safely handles if the directory is empty or files are unreadable
+          for f in /etc/sudoers.d/*; do
+            if [ -f "$f" ]; then
+              echo "--- Contents of: $f ---"
+              sudo cat "$f"
+            fi
+          done
+          
+          echo "--- Diagnostics Complete ---"
+
+      - name: Stop workflow for analysis
+        # This step runs only if the diagnostics step completed (even with errors)
+        # It ensures the workflow stops here and is marked for review.
+        if: always()
+        run: |
+          echo "Workflow stopped for analysis. Please copy the entire log from the 'Run Diagnostics' step above and paste it back to me."
+          # Exit with a failure code to make sure the workflow run is marked red and gets attention.
+          exit 1
