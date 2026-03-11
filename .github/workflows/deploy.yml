@@ -14,6 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --- Rust Backend Steps ---
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Cache Cargo dependencies
         uses: actions/cache@v3
         with:
@@ -23,23 +27,69 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('''**/Cargo.lock''') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build Rust application
-        run: |
-          source "$HOME/.cargo/env"
-          cargo build --release --verbose
+        run: cargo build --release --verbose
 
-      - name: Deploy
+      # --- Node.js Frontend Steps ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ./client
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: ./client
+
+      # --- Deployment Steps ---
+      - name: Deploy to Server
         run: |
-          echo "Deploying application and data to /srv/xiancraft..."
-          mkdir -p /srv/xiancraft
+          echo "Creating/Updating systemd service file..."
+          # Use 'tee' to write the service file with sudo privileges.
+          # The file content is quoted to handle special characters and newlines.
+          echo '[Unit]
+          Description=XianCraft Game Server
+          After=network.target
+
+          [Service]
+          # Environment variables for the application
+          Environment=DATA_DIR=/srv/xiancraft/data
+          Environment=STATIC_DIR=/srv/xiancraft/frontend
+          Environment=PORT=3000
+
+          User=xiancraft-runner
+          Group=xiancraft-runner
+          WorkingDirectory=/srv/xiancraft
+          ExecStart=/srv/xiancraft/server
+          Restart=always
+          RestartSec=5s
+
+          [Install]
+          WantedBy=multi-user.target' | sudo tee /etc/systemd/system/xiancraft.service
+
+          echo "Reloading systemd daemon to apply changes..."
+          sudo systemctl daemon-reload
           
-          echo "Copying application binary..."
-          cp "${GITHUB_WORKSPACE}/target/release/server" /srv/xiancraft/server
+          echo "Ensuring service is enabled to start on boot..."
+          sudo systemctl enable xiancraft.service
+
+          echo "Creating deployment directories..."
+          sudo mkdir -p /srv/xiancraft/frontend
+
+          echo "Deploying files..."
+          sudo cp "${{ GITHUB_WORKSPACE }}/target/release/server" /srv/xiancraft/server
+          sudo cp -r "${{ GITHUB_WORKSPACE }}/data/." /srv/xiancraft/data/
+          sudo cp -r "${{ GITHUB_WORKSPACE }}/client/dist/." /srv/xiancraft/frontend/
           
-          echo "Copying game data directory..."
-          cp -r "${GITHUB_WORKSPACE}/data" /srv/xiancraft/
-          
-          echo "Restarting service..."
+          echo "Setting correct ownership..."
+          sudo chown -R xiancraft-runner:xiancraft-runner /srv/xiancraft
+
+          echo "Restarting XianCraft service..."
           sudo systemctl restart xiancraft.service
