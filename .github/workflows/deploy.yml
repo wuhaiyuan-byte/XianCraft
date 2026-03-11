@@ -30,16 +30,14 @@ jobs:
           source "$HOME/.cargo/env"
           cargo build --release --verbose
 
-      - name: "Who Am I? (Diagnose Runner User)"
-        run: |
-          echo "This workflow is running as user:"
-          whoami
-
       - name: Deploy
         run: |
           echo "Deploying to /srv/xiancraft..."
+          # The runner user 'blueleaf' is in the 'xiancraft-runner' group,
+          # which has write permissions to the directory.
           mkdir -p /srv/xiancraft
           cp "${GITHUB_WORKSPACE}/target/release/server" /srv/xiancraft/server
           
           echo "Restarting service..."
+          # The 'blueleaf' user has passwordless sudo for this specific command.
           sudo systemctl restart xiancraft.service
