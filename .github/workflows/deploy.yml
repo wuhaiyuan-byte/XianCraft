@@ -34,6 +34,8 @@ jobs:
       - name: Deploy
         run: |
           echo "Deploying the application..."
+          # Use absolute path for the binary to make sudoers configuration straightforward.
+          # The GITHUB_WORKSPACE variable is provided by the GitHub Actions runner.
           sudo mkdir -p /srv/xiancraft
-          sudo cp target/release/server /srv/xiancraft/server
+          sudo cp "${GITHUB_WORKSPACE}/target/release/server" /srv/xiancraft/server
           sudo systemctl restart xiancraft.service
