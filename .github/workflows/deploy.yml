@@ -14,10 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # The "Set up Rust" step has been removed. 
-      # We will rely on the toolchain being pre-installed and kept up-to-date
-      # on the self-hosted runner machine itself.
-
       - name: Cache Cargo dependencies
         uses: actions/cache@v3
         with:
@@ -30,11 +26,16 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('''**/Cargo.lock''') }}
 
       - name: Build Rust application
-        run: cargo build --release --verbose
+        run: |
+          # Source the cargo environment to add cargo to the PATH
+          source "$HOME/.cargo/env"
+          cargo build --release --verbose
 
       - name: Deploy
         run: |
           echo "Deploying the application..."
+          # Source the cargo env again is not needed because sudo runs with its own secure_path.
+          # The user for sudo has been configured with NOPASSWD.
           sudo mkdir -p /srv/xiancraft
           sudo cp target/release/server /srv/xiancraft/server
           sudo systemctl restart xiancraft.service
