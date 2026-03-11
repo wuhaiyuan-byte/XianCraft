@@ -30,14 +30,16 @@ jobs:
           source "$HOME/.cargo/env"
           cargo build --release --verbose
 
+      - name: "Who Am I? (Diagnose Runner User)"
+        run: |
+          echo "This workflow is running as user:"
+          whoami
+
       - name: Deploy
         run: |
           echo "Deploying to /srv/xiancraft..."
-          # The runner user will have ownership of the target directory,
-          # so mkdir and cp do not require sudo.
           mkdir -p /srv/xiancraft
           cp "${GITHUB_WORKSPACE}/target/release/server" /srv/xiancraft/server
           
           echo "Restarting service..."
-          # Only the systemctl command requires sudo.
           sudo systemctl restart xiancraft.service
