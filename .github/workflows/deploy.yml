@@ -34,8 +34,6 @@ jobs:
       - name: Deploy
         run: |
           echo "Deploying the application..."
-          # Source the cargo env again is not needed because sudo runs with its own secure_path.
-          # The user for sudo has been configured with NOPASSWD.
           sudo mkdir -p /srv/xiancraft
           sudo cp target/release/server /srv/xiancraft/server
           sudo systemctl restart xiancraft.service
