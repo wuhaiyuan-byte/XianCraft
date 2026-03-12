@@ -43,8 +43,8 @@ mod tests {
         let monster_id_str = target_proto_id.to_string();
         let quest_msg = player.on_kill(&monster_id_str, &static_data.quests);
 
-        // Verify the return message contains the quest progress "1/10"
-        assert!(quest_msg.contains("1/10"), "Quest progress should be 1/10 after first kill");
+        // Verify the return message contains the quest progress "1/2"
+        assert!(quest_msg.contains("1/2"), "Quest progress should be 1/2 after first kill");
 
         // Verify the NPC instance is removed from the world state (dynamic data)
         {

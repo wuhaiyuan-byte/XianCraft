@@ -8,3 +8,4 @@ pub mod game_demo;
 pub mod visual_refinement_demo;
 pub mod welcome_demo;
 pub mod welcome_demo_anime;
+pub mod help_command_test;

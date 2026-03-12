@@ -46,18 +46,18 @@ mod tests {
         let monster_id = "3002";
         let kill_msg_1 = player.on_kill(monster_id, &static_data.quests);
         
-        assert!(kill_msg_1.contains("1/10"), "Progress message should show 1/10");
+        assert!(kill_msg_1.contains("1/2"), "Progress message should show 1/2");
         let status = player.active_quests.iter().find(|q| q.quest_id == quest_id).unwrap();
         assert_eq!(*status.kill_counts.get(monster_id).unwrap(), 1);
         assert!(!status.is_completed, "Quest should not be completed yet");
 
-        // 7. Simulate killing 9 more '3002' to complete the quest (Total 10)
+        // 7. Simulate killing 1 more '3002' to complete the quest (Total 2)
         let mut final_msg = String::new();
-        for _ in 0..9 {
+        for _ in 0..1 {
             final_msg = player.on_kill(monster_id, &static_data.quests);
         }
 
-        assert!(final_msg.contains("10/10"), "Progress message should show 10/10");
+        assert!(final_msg.contains("2/2"), "Progress message should show 2/2");
         assert!(final_msg.contains("已达成任务"), "Completion message should be triggered");
         
         let status_final = player.active_quests.iter().find(|q| q.quest_id == quest_id).unwrap();

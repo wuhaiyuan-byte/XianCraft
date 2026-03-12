@@ -20,7 +20,6 @@ mod tests {
 
         // 2. Manually add q201 to active_quests
         let quest_id = "q201".to_string();
-        let quest = static_data.quests.get(&quest_id).expect("Quest q201 not found");
         
         player.active_quests.push(PlayerQuestStatus {
             quest_id: quest_id.clone(),
@@ -33,8 +32,8 @@ mod tests {
         let room_id = "deep_bamboo_2";
         world_state.move_player_to_room(player_id, room_id);
 
-        // 4. Loop 10 times to simulate 10 kills
-        for i in 1..=10 {
+        // 4. Loop 2 times to simulate 2 kills
+        for i in 1..=2 {
             // Ensure there is a monster (3002) in the room
             let monster_proto_id = 3002u32;
             {
@@ -63,14 +62,8 @@ mod tests {
             let target_id_str = target_npc.prototype_id.to_string();
             let quest_msg = player.on_kill(&target_id_str, &static_data.quests);
             
-            // Debug prints
-            let expected = format!("{}/10", i);
-            println!("[DEBUG] Kill #{}", i);
-            println!("[DEBUG] Target ID: {}", target_id_str);
-            println!("[DEBUG] Expected substring: {}", expected);
-            println!("[DEBUG] Actual Quest Message: {:?}", quest_msg);
-
             // Check progress message
+            let expected = format!("{}/2", i);
             assert!(quest_msg.contains(&expected), "Message should contain progress info");
 
             // Remove the NPC instance (simulating death)

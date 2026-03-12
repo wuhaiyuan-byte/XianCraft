@@ -2,47 +2,15 @@
 # see: https://developers.google.com/idx/guides/customize-idx-env
 { pkgs, ... }: {
   # Which nixpkgs channel to use.
-  channel = "stable-24.05"; # or "unstable"
-  # Use https://search.nixos.org/packages to find packages
+  # Using "unstable" to get the latest versions of packages, including Rust.
+  channel = "unstable";
+
+  # Use https://search.nixos.org/packages to find packages.
+  # We are explicitly installing the latest Rust toolchain available in the unstable channel.
   packages = [
-    
-    pkgs.cargo
     pkgs.rustc
-    pkgs.rustfmt
-    pkgs.stdenv.cc
-    pkgs.nodejs_22 # Add Node.js to the environment
+    pkgs.cargo
+    pkgs.rust-analyzer
+    pkgs.gcc # A C compiler is often needed for native dependencies in Rust crates.
   ];
-  # Sets environment variables in the workspace
-  env = {
-    RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
-  };
-  idx.previews = {
-    enable = true;
-    previews = {
-      # Frontend web preview
-      web = {
-        command = [
-          "npm"
-          "run"
-          "dev"
-          "--"
-          "--port"
-          "$PORT"
-          "--host"
-          "0.0.0.0"
-        ];
-        manager = "web";
-        cwd = "client";
-      };
-      # Backend server preview
-      backend = {
-        command = [
-          "cargo"
-          "run"
-        ];
-        manager = "web";
-        cwd = "server";
-      };
-    };
-  };
 }

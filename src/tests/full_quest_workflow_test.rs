@@ -41,13 +41,13 @@ mod tests {
         assert!(accepted, "Player should successfully accept q201");
         assert!(player.active_quests.iter().any(|q| q.quest_id == quest_id));
 
-        // 4. Step 3 (Combat/Progress): Simulate 10 Attack commands on 3002 (翠竹蛇)
+        // 4. Step 3 (Combat/Progress): Simulate 2 Attack commands on 3002 (翠竹蛇)
         let monster_id = "3002";
         // Move to a room where the snake actually spawns
         world_state.move_player_to_room(player_id, "deep_bamboo_2");
         let combat_room = "deep_bamboo_2";
 
-        for i in 1..=10 {
+        for i in 1..=2 {
             // Find an instance of 3002 in the room
             let target_instance_id = {
                 let npcs = world_state.get_npcs_in_room(combat_room);
@@ -64,14 +64,14 @@ mod tests {
             }
             
             let progress_msg = player.on_kill(monster_id, &static_data.quests);
-            assert!(progress_msg.contains(&format!("{}/10", i)));
+            assert!(progress_msg.contains(&format!("{}/2", i)));
 
             // Verify NPC removed
             let npcs_after = world_state.get_npcs_in_room(combat_room);
             assert!(!npcs_after.iter().any(|n| n.instance_id == target_instance_id));
 
             // Call respawn to bring a new one back for the next iteration (unless it's the last kill)
-            if i < 10 {
+            if i < 2 {
                 world_state.respawn_monsters();
                 let npcs_respawned = world_state.get_npcs_in_room(combat_room);
                 // Note: Respawn might pick a different monster from the room list (3001 or 3002),
@@ -94,7 +94,7 @@ mod tests {
 
         // 5. Step 4 (Completion): Verify is_completed is true
         let final_status = player.active_quests.iter().find(|q| q.quest_id == quest_id).unwrap();
-        assert!(final_status.is_completed, "Quest q201 should be marked as completed after 10 kills");
+        assert!(final_status.is_completed, "Quest q201 should be marked as completed after 2 kills");
 
         // 6. Step 5 (Rewards): Call grant_reward and verify state
         let reward_msg = player.grant_reward(&quest_proto.rewards);

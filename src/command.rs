@@ -16,6 +16,7 @@ pub enum Command {
     Unalias { name: String },
     Rest,
     Work,
+    Help, // New Help command
     Invalid(String),
     Unknown(String),
 }
@@ -146,6 +147,7 @@ pub fn parse(input: &str) -> Command {
         }
         "rest" => Command::Rest,
         "work" | "job" => Command::Work,
+        "help" => Command::Help, // Handle 'help'
         _ => Command::Unknown(command.to_string()),
     }
 }

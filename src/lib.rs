@@ -360,7 +360,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                 if let Some(current_room) = world.get_room(&current_room_id_str) {
                     
                     let block_resting = match command {
-                        Command::Look | Command::Score | Command::Quest | Command::Inventory | Command::Rest => false,
+                        Command::Look | Command::Score | Command::Quest | Command::Inventory | Command::Rest | Command::Help => false,
                         _ => session.player.is_resting,
                     };
 
@@ -368,6 +368,51 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                         messages_to_send.push(ServerMessage::Error { payload: "你正在休息中，无法执行此操作。".to_string() });
                     } else {
                         match command {
+                            Command::Help => {
+                                let help_text = format!("{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}
+{}",
+                                    "----【 可用指令 (Commands) 】----".bold().yellow(),
+                                    "
+  ".to_string() + &"【通用】".bold().cyan(),
+                                    "  look              - 查看当前环境。",
+                                    "  score/status      - 查看你的角色状态。",
+                                    "  inventory/i       - 查看你的背包。",
+                                    "  say <内容>        - 对房间里的所有人说话。",
+                                    "
+  ".to_string() + &"【移动】".bold().cyan(),
+                                    "  go <方向>         - 向指定方向移动 (north, south, east, west... 或 n, s, e, w...)",
+                                    "
+  ".to_string() + &"【互动】".bold().cyan(),
+                                    "  talk <目标>       - 与NPC对话。",
+                                    "  attack <目标>     - 攻击一个目标。",
+                                    "  get/take <物品>   - 从地上捡起物品。",
+                                    "
+  ".to_string() + &"【任务】".bold().cyan(),
+                                    "  quest/qs          - 查看当前任务状态。",
+                                    "  accept <任务ID>   - 从告示牌等处接受任务。",
+                                    "
+  ".to_string() + &"【其它】".bold().cyan(),
+                                    "  rest              - 原地休息以恢复体力。",
+                                    "  work              - 在特定地点劳动以赚取奖励。"
+                                );
+                                messages_to_send.push(ServerMessage::Info { payload: help_text });
+                            }
                             Command::Rest => {
                                 session.player.is_resting = !session.player.is_resting;
                                 if session.player.is_resting {
