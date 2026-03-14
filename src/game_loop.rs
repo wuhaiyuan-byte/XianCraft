@@ -285,7 +285,30 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
         }
     }
     
-    for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
+    // 更新 NPC 的 HP (无论生死)
+    for (attacker_id, _attacker_is_player, defender_id, defender_is_player, new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
+        if !*defender_is_player {
+            let mut data = app_state.world_state.dynamic_data.lock().unwrap();
+            if let Some(npc) = data.npcs.get_mut(defender_id) {
+                npc.hp = *new_hp;
+                // 更新 NPC 的连招索引
+                if let Some(cs) = &mut npc.combat_state {
+                    if let Some(skill) = app_state.world_state.static_data.skills.get(&cs.current_skill_id) {
+                        if !skill.moves.is_empty() {
+                            if cs.combo_index + 1 >= skill.moves.len() {
+                                cs.combo_index = 0;
+                            } else {
+                                cs.combo_index += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 只有当NPC死亡时才清除玩家的战斗状态
+    for (attacker_id, _attacker_is_player, defender_id, defender_is_player, _new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
         // 只有当NPC死亡时才清除玩家的战斗状态
         if !*defender_is_player && *is_dead {
             let attacker_id: u64 = attacker_id.to_string().parse().unwrap_or(0);
