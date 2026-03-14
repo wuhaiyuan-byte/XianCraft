@@ -17,14 +17,32 @@
 src/
 ├── lib.rs              # 主服务器逻辑，WebSocket 处理，命令路由
 ├── command.rs          # 命令解析 (parse 函数)
-├── npc.rs              # NPC 定义
-├── world/
-│   ├── world_state.rs  # 游戏世界状态 (动态数据)
-│   ├── player.rs       # 玩家数据结构
-│   ├── loader.rs       # 数据加载
-│   ├── room.rs         # 房间定义
-│   └── ...
-├── world_model.rs      # 静态数据结构 (Quest, Item 等)
+├── combat.rs           # 战斗引擎核心 (伤害计算、暴击判定)
+├── game_loop.rs       # 游戏循环 (心跳恢复、战斗tick)
+├── ui.rs              # 界面显示函数 (欢迎消息、房间描述、who列表)
+├── npc.rs             # NPC 定义
+├── main.rs            # 程序入口
+├── world/                         # 游戏世界数据
+│   ├── world_state.rs             # 游戏世界状态 (动态数据)
+│   ├── world_player.rs            # 玩家数据结构
+│   ├── world_loader.rs            # 数据加载
+│   ├── world_room.rs              # 房间定义
+│   ├── world_skill.rs             # 技能数据结构
+│   ├── world_zone.rs              # 区域定义
+│   ├── world_text.rs              # 文本渲染
+│   ├── world_event.rs             # 事件系统
+│   └── mod.rs
+├── commands/                      # 命令模块 (按功能分组)
+│   ├── mod.rs                     # 模块导出
+│   ├── help.rs                    # help 命令
+│   ├── look.rs                    # look 命令
+│   ├── who.rs                     # who 命令
+│   ├── player.rs                  # score/inventory/rest/work 命令
+│   ├── battle.rs                  # attack/kill/cast 命令
+│   ├── movement.rs                # go 命令
+│   ├── interaction.rs             # talk/get 命令
+│   └── quest.rs                   # quest/accept 命令
+├── world_model.rs      # 静态数据结构 (Quest, Item, Skill 等)
 └── tests/              # 单元测试
 ```
 
@@ -32,7 +50,7 @@ src/
 
 ### 1. 数据分离
 
-- **静态数据** (`WorldState.static_data`): 房间、NPC 模板、物品模板、任务配置 (从 JSON 加载)
+- **静态数据** (`WorldState.static_data`): 房间、NPC 模板、物品模板、技能模板、任务配置 (从 JSON 加载)
 - **动态数据** (`WorldState.dynamic_data`): 在线玩家位置、NPC 实例、房间物品
 
 ### 2. 状态管理
@@ -61,7 +79,7 @@ struct AppState {
 
 ## 开发原则
 
-### 锁的使用规则 (关键!)
+### 1. 锁的使用规则 (关键!)
 
 **避免死锁的核心原则:**
 
@@ -95,9 +113,7 @@ let names: Vec<String> = {
 2. 释放 `session_lock`（使用 `drop(session_lock)`）
 3. 再获取其他锁
 
-Look/Go 命令需要用这个模式。
-
-### 4. 玩家状态同步
+### 2. 玩家状态同步
 
 玩家名称和位置信息需要同步到两个地方:
 
@@ -115,23 +131,51 @@ state.world_state.update_player_name(player_id, user_id);
 world.move_player_to_room(player_id, &next_room_id, session.user_id.clone());
 ```
 
-### 5. 命令处理流程
+### 3. 命令处理流程
 
 1. WebSocket 接收消息 → `parse()` 解析命令
 2. `handle_command()` 处理命令
 3. 获取 session 锁 → 执行逻辑 → 发送响应
 
-### 6. 添加新命令
+### 4. 添加新命令
 
 1. 在 `command.rs` 的 `Command` enum 添加变体
 2. 在 `command.rs` 的 `parse()` 添加解析逻辑
-3. 在 `lib.rs` 的 `handle_command()` 添加处理逻辑
-4. 在 `lib.rs` 的帮助文本中添加命令说明
+3. 在对应的 `commands/` 目录下创建或更新命令处理函数
+4. 在 `lib.rs` 的 `handle_command()` 调用 commands 模块
+5. 在 `commands/help.rs` 添加命令说明
 
-### 7. 测试
+**commands 目录结构:**
+- 按功能分组创建文件 (如 battle.rs, movement.rs)
+- 在 `commands/mod.rs` 导出
+- 函数签名设计为接收必要参数，返回 `ServerMessage` 或 `Option<ServerMessage>`
+
+## 技能系统
+
+技能定义在 `data/skills.json`，包含:
+- **物理技能**: sword_1 (太宗剑法)
+- **法术技能**: thunder_1 (掌心雷)
+- **治疗技能**: heal_1 (灵气疗伤)
+
+每个技能有:
+- combo连击系统 (3个招式循环)
+- 属性加成 (str/dex/int)
+- 冷却时间
+
+## 任务系统
+
+- **类型**: 击杀任务 (kill)、对话任务 (talk)、移动任务 (move)
+- **状态跟踪**: `PlayerQuestStatus`
+- **奖励**: 灵贝、修为、潜能
+
+## 测试
 
 ```bash
+# 运行所有测试
 cargo test
+
+# 运行特定测试
+cargo test test_name
 ```
 
 ## 常用命令
@@ -145,6 +189,9 @@ cargo test
 
 # 构建
 cargo build
+
+# 检查代码
+cargo check
 ```
 
 ## 代码规范
@@ -153,3 +200,4 @@ cargo build
 - 使用 `tracing` 进行日志记录
 - 遵循 Rust 所有权规则，避免克隆过多
 - 保持函数简洁，单一职责
+- 命令处理逻辑应放在 `commands/` 目录下

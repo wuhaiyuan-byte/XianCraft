@@ -10,6 +10,9 @@ pub mod ui;
 pub mod game_loop;
 pub mod commands;
 
+#[cfg(feature = "gotify")]
+pub mod gotify;
+
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
