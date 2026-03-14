@@ -10,3 +10,4 @@ pub mod welcome_demo;
 pub mod welcome_demo_anime;
 pub mod help_command_test;
 pub mod who_command_test;
+pub mod combat_tests;

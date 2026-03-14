@@ -18,6 +18,8 @@ pub enum Command {
     Work,
     Help,
     Who,
+    Kill { target: String },
+    Cast { skill: String, target: Option<String> },
     Invalid(String),
     Unknown(String),
 }
@@ -150,7 +152,22 @@ pub fn parse(input: &str) -> Command {
         "work" | "job" => Command::Work,
         "help" => Command::Help,
         "who" => Command::Who,
-        "who2" => Command::Who, // Debug version without colors
+        "who2" => Command::Who,
+        "kill" | "atk" => {
+            if let Some(target) = parts.next() {
+                Command::Kill { target: target.to_string() }
+            } else {
+                Command::Invalid("Kill what?".to_string())
+            }
+        }
+        "cast" | "use" => {
+            if let Some(skill) = parts.next() {
+                let target = parts.next().map(|s| s.to_string());
+                Command::Cast { skill: skill.to_string(), target }
+            } else {
+                Command::Invalid("Cast what?".to_string())
+            }
+        }
         _ => Command::Unknown(command.to_string()),
     }
 }

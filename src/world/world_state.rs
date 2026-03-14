@@ -45,12 +45,26 @@ impl WorldState {
         for room in static_data.rooms.values() {
             for npc_prototype_id in &room.npcs {
                 if let Some(prototype) = static_data.npc_prototypes.get(npc_prototype_id) {
-                    let npc = Npc::from_prototype(
+                    let mut npc = Npc::from_prototype(
                         dynamic_data.next_npc_id, 
                         *npc_prototype_id, 
                         prototype, 
                         room.id.clone(),
                     );
+                    
+                    // Try to load combat stats from monsters.json using prototype name as key
+                    let monster_key = npc.name.clone();
+                    if let Some(monster_template) = static_data.monsters.get(&monster_key) {
+                        npc.init_combat_stats(
+                            monster_template.max_hp as i32,
+                            monster_template.attack as i32,
+                            monster_template.defense as i32,
+                        );
+                    } else {
+                        // Default combat stats if no monster template found
+                        npc.init_combat_stats(50, 10, 2);
+                    }
+                    
                     dynamic_data.npcs.insert(dynamic_data.next_npc_id, npc);
                     dynamic_data.next_npc_id += 1;
                 }

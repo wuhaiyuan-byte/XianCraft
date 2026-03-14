@@ -134,3 +134,43 @@ pub struct Quest {
 pub struct QuestRegistry {
     pub quests: HashMap<String, Quest>,
 }
+
+// ========== Combat & Skills Static Data ==========
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SkillTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub cost_qi: u32,
+    pub cost_hp: u32,
+    pub base_damage: i32,
+    pub scaling_attr: String,
+    pub scaling_multiplier: f32,
+    pub cooldown: u32,
+    pub is_magic: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct MonsterTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub level: u32,
+    pub max_hp: u32,
+    pub attack: u32,
+    pub defense: u32,
+    pub exp_reward: u64,
+    pub shell_reward: u32,
+    pub is_aggro: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SkillRegistry {
+    pub skills: HashMap<String, SkillTemplate>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct MonsterRegistry {
+    pub monsters: HashMap<String, MonsterTemplate>,
+}

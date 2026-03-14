@@ -1,4 +1,4 @@
-use crate::world_model::{ItemZoneData, MultiZoneData, NpcPrototype, NpcZoneData, Room, WorldConfig, ZoneData, Quest, QuestRegistry};
+use crate::world_model::{ItemZoneData, MultiZoneData, NpcPrototype, NpcZoneData, Room, WorldConfig, ZoneData, Quest, QuestRegistry, SkillRegistry, MonsterRegistry};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
@@ -12,6 +12,8 @@ pub struct StaticWorldData {
     pub npc_prototypes: HashMap<u32, NpcPrototype>,
     pub item_prototypes: HashMap<u32, crate::world_model::ItemPrototype>,
     pub quests: HashMap<String, Quest>,
+    pub skills: HashMap<String, crate::world_model::SkillTemplate>,
+    pub monsters: HashMap<String, crate::world_model::MonsterTemplate>,
 }
 
 pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
@@ -51,6 +53,8 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
     let mut npc_prototypes = HashMap::new();
     let mut item_prototypes = HashMap::new();
     let mut quests = HashMap::new();
+    let mut skills = HashMap::new();
+    let mut monsters = HashMap::new();
 
     for entry in fs::read_dir(path)? {
         let entry = entry?;
@@ -85,15 +89,33 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
                 .with_context(|| format!("Failed to parse Quest registry from {:?}", entry.path()))?;
             
             quests = quest_registry.quests;
+        } else if file_name == "skills.json" {
+            let skill_str = fs::read_to_string(entry.path())
+                .with_context(|| format!("Failed to read Skills file at {:?}", entry.path()))?;
+
+            let skill_registry: SkillRegistry = serde_json::from_str(&skill_str)
+                .with_context(|| format!("Failed to parse Skill registry from {:?}", entry.path()))?;
+            
+            skills = skill_registry.skills;
+        } else if file_name == "monsters.json" {
+            let monster_str = fs::read_to_string(entry.path())
+                .with_context(|| format!("Failed to read Monsters file at {:?}", entry.path()))?;
+
+            let monster_registry: MonsterRegistry = serde_json::from_str(&monster_str)
+                .with_context(|| format!("Failed to parse Monster registry from {:?}", entry.path()))?;
+            
+            monsters = monster_registry.monsters;
         }
     }
 
     println!(
-        "✅ World data loaded: {} rooms, {} NPC prototypes, {} Item prototypes, {} quests",
+        "✅ World data loaded: {} rooms, {} NPC prototypes, {} Item prototypes, {} quests, {} skills, {} monsters",
         rooms.len(),
         npc_prototypes.len(),
         item_prototypes.len(),
-        quests.len()
+        quests.len(),
+        skills.len(),
+        monsters.len()
     );
 
     Ok(StaticWorldData {
@@ -102,5 +124,7 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
         npc_prototypes,
         item_prototypes,
         quests,
+        skills,
+        monsters,
     })
 }

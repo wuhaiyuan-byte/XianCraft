@@ -1,0 +1,64 @@
+{
+  "skills": {
+    "sword_1": {
+      "id": "sword_1",
+      "name": "太宗剑法",
+      "description": "太宗皇帝所创的绝妙剑招，以稳重著称",
+      "cost_qi": 10,
+      "cost_hp": 0,
+      "base_damage": 30,
+      "scaling_attr": "str",
+      "scaling_multiplier": 1.5,
+      "cooldown": 0,
+      "is_magic": false
+    },
+    "sword_2": {
+      "id": "sword_2",
+      "name": "落叶剑诀",
+      "description": "剑如落叶飘零，伤人于无形",
+      "cost_qi": 20,
+      "cost_hp": 0,
+      "base_damage": 50,
+      "scaling_attr": "dex",
+      "scaling_multiplier": 2.0,
+      "cooldown": 1,
+      "is_magic": false
+    },
+    "thunder_1": {
+      "id": "thunder_1",
+      "name": "掌心雷",
+      "description": "修仙界最基本的雷法，一掌击出，雷声轰鸣",
+      "cost_qi": 15,
+      "cost_hp": 0,
+      "base_damage": 35,
+      "scaling_attr": "int",
+      "scaling_multiplier": 1.8,
+      "cooldown": 0,
+      "is_magic": true
+    },
+    "thunder_2": {
+      "id": "thunder_2",
+      "name": "天雷罚",
+      "description": "引动天雷降下惩罚，威力巨大",
+      "cost_qi": 40,
+      "cost_hp": 0,
+      "base_damage": 80,
+      "scaling_attr": "int",
+      "scaling_multiplier": 2.5,
+      "cooldown": 2,
+      "is_magic": true
+    },
+    "heal_1": {
+      "id": "heal_1",
+      "name": "灵气疗伤",
+      "description": "运转灵气疗养伤势",
+      "cost_qi": 20,
+      "cost_hp": 0,
+      "base_damage": -30,
+      "scaling_attr": "int",
+      "scaling_multiplier": 1.0,
+      "cooldown": 3,
+      "is_magic": true
+    }
+  }
+}

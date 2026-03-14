@@ -5,6 +5,7 @@ pub mod command;
 pub mod npc;
 pub mod world;
 pub mod world_model;
+pub mod combat;
 
 use axum::{
     extract::{
@@ -742,6 +743,163 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     }
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: format!("你在这没看到 {}。", target) });
+                                }
+                            }
+                            Command::Kill { target } => {
+                                let attacker_stats = {
+                                    let p = &session.player;
+                                    combat::CombatStats {
+                                        hp: p.hp as i32,
+                                        max_hp: p.hp_max as i32,
+                                        attack: p.atk as i32,
+                                        defense: 5,
+                                        level: p.realm_level as i32,
+                                        name: p.name.clone(),
+                                        is_player: true,
+                                        str: p.stats.str as i32,
+                                        dex: p.stats.dex as i32,
+                                        int: p.stats.int as i32,
+                                    }
+                                };
+                                let target_npc = {
+                                    let data = world.dynamic_data.lock().unwrap();
+                                    data.npcs.values()
+                                        .find(|n| n.current_room == current_room_id_str && (n.name == target || n.prototype_id.to_string() == target))
+                                        .cloned()
+                                };
+                                
+                                if let Some(npc) = target_npc {
+                                    let defender_stats = combat::CombatStats {
+                                        hp: npc.hp,
+                                        max_hp: npc.max_hp,
+                                        attack: npc.attack,
+                                        defense: npc.defense,
+                                        level: npc.level,
+                                        name: npc.name.clone(),
+                                        is_player: false,
+                                        str: 10,
+                                        dex: 10,
+                                        int: 10,
+                                    };
+                                    
+                                    let result = combat::resolve_attack(&attacker_stats, &defender_stats, None);
+                                    
+                                    match result {
+                                        combat::CombatResult::Hit { damage, is_crit: _, log } => {
+                                            messages_to_send.push(ServerMessage::Description { payload: log });
+                                            
+                                            let mut dynamic_data = world.dynamic_data.lock().unwrap();
+                                            if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
+                                                npc_instance.hp -= damage;
+                                                if npc_instance.hp <= 0 {
+                                                    dynamic_data.npcs.remove(&npc.instance_id);
+                                                    messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
+                                                }
+                                            }
+                                        }
+                                        combat::CombatResult::TargetKilled { damage: _, is_crit: _, log } => {
+                                            messages_to_send.push(ServerMessage::Description { payload: log });
+                                            
+                                            let mut dynamic_data = world.dynamic_data.lock().unwrap();
+                                            dynamic_data.npcs.remove(&npc.instance_id);
+                                            messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
+                                        }
+                                        combat::CombatResult::Miss { log } => {
+                                            messages_to_send.push(ServerMessage::Description { payload: log });
+                                        }
+                                        _ => {}
+                                    }
+                                } else {
+                                    messages_to_send.push(ServerMessage::Error { payload: format!("这里没有 {}。", target) });
+                                }
+                            }
+                            Command::Cast { skill, target } => {
+                                let skill_template = world.static_data.skills.get(&skill).cloned();
+                                if let Some(skill_tpl) = skill_template {
+                                    if session.player.qi < skill_tpl.cost_qi as u32 {
+                                        messages_to_send.push(ServerMessage::Error { payload: format!("你的真元不足，需要 {} 点真元。", skill_tpl.cost_qi) });
+                                    } else {
+                                        let attacker_stats = {
+                                            let p = &session.player;
+                                            combat::CombatStats {
+                                                hp: p.hp as i32,
+                                                max_hp: p.hp_max as i32,
+                                                attack: p.atk as i32,
+                                                defense: 5,
+                                                level: p.realm_level as i32,
+                                                name: p.name.clone(),
+                                                is_player: true,
+                                                str: p.stats.str as i32,
+                                                dex: p.stats.dex as i32,
+                                                int: p.stats.int as i32,
+                                            }
+                                        };
+                                        
+                                        if skill_tpl.is_magic && (skill_tpl.base_damage as i32) < 0 {
+                                            let result = combat::resolve_heal(&skill_tpl, &attacker_stats);
+                                            if let combat::CombatResult::Heal { amount, log } = result {
+                                                session.player.qi -= skill_tpl.cost_qi as u32;
+                                                session.player.hp = (session.player.hp + amount as u32).min(session.player.hp_max);
+                                                messages_to_send.push(ServerMessage::Description { payload: log });
+                                            }
+                                        } else {
+                                            let target_npc = if let Some(t) = target {
+                                                let data = world.dynamic_data.lock().unwrap();
+                                                data.npcs.values()
+                                                    .find(|n| n.current_room == current_room_id_str && (n.name == t || n.prototype_id.to_string() == t))
+                                                    .cloned()
+                                            } else {
+                                                None
+                                            };
+                                            
+                                            if let Some(npc) = target_npc {
+                                                let defender_stats = combat::CombatStats {
+                                                    hp: npc.hp,
+                                                    max_hp: npc.max_hp,
+                                                    attack: npc.attack,
+                                                    defense: npc.defense,
+                                                    level: npc.level,
+                                                    name: npc.name.clone(),
+                                                    is_player: false,
+                                                    str: 10,
+                                                    dex: 10,
+                                                    int: 10,
+                                                };
+                                                
+                                                let result = combat::resolve_attack(&attacker_stats, &defender_stats, Some(&skill_tpl));
+                                                
+                                                session.player.qi -= skill_tpl.cost_qi as u32;
+                                                
+                                                match result {
+                                                    combat::CombatResult::Hit { damage, is_crit: _, log } => {
+                                                        messages_to_send.push(ServerMessage::Description { payload: log });
+                                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
+                                                        if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
+                                                            npc_instance.hp -= damage;
+                                                            if npc_instance.hp <= 0 {
+                                                                dynamic_data.npcs.remove(&npc.instance_id);
+                                                                messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
+                                                            }
+                                                        }
+                                                    }
+                                                    combat::CombatResult::TargetKilled { damage: _, is_crit: _, log } => {
+                                                        messages_to_send.push(ServerMessage::Description { payload: log });
+                                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
+                                                        dynamic_data.npcs.remove(&npc.instance_id);
+                                                        messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
+                                                    }
+                                                    combat::CombatResult::Miss { log } => {
+                                                        messages_to_send.push(ServerMessage::Description { payload: log });
+                                                    }
+                                                    _ => {}
+                                                }
+                                            } else {
+                                                messages_to_send.push(ServerMessage::Error { payload: "你的目标不存在。".to_string() });
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    messages_to_send.push(ServerMessage::Error { payload: format!("没有找到技能: {}", skill) });
                                 }
                             }
                             Command::Work => {
