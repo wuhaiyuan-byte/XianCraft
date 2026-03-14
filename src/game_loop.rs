@@ -4,6 +4,7 @@ use tokio::time::{sleep, Duration};
 use crate::{AppState, ServerMessage, combat};
 use colored::*;
 use axum::extract::ws::Message;
+use rand;
 
 pub async fn game_loop(app_state: Arc<AppState>) {
     let mut tick_counter: u64 = 0;
@@ -301,7 +302,18 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
                 let mut sessions = app_state.player_sessions.lock().unwrap();
                 if let Some(session) = sessions.get_mut(&attacker_id) {
                     session.player.combat_state = None;
-                    let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", npc_name.yellow());
+                    
+                    // 随机死亡描述
+                    let death_messages = [
+                        "发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。",
+                        "浑身生机断绝，直挺挺地倒了下去。",
+                        "周身灵光溃散，已然气绝身亡。",
+                        "挣扎了几下，最终还是倒在了血泊中。",
+                        "发出最后一声悲鸣，化作一道光芒消逝而去。",
+                    ];
+                    let idx = rand::random::<usize>() % death_messages.len();
+                    let death_msg = format!("{}{}", npc_name.yellow(), death_messages[idx]);
+                    
                     let msg = ServerMessage::Description { payload: death_msg };
                     if let Ok(json) = serde_json::to_string(&msg) {
                         let _ = session.sender.try_send(Message::Text(json));
