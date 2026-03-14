@@ -12,3 +12,4 @@ pub mod help_command_test;
 pub mod who_command_test;
 pub mod combat_tests;
 pub mod move_look_tests;
+pub mod combat_flow_tests;
