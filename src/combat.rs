@@ -72,6 +72,48 @@ pub struct CombatStats {
     pub int: i32,
 }
 
+// ============================================================================
+// 第一步：提取公共计算辅助函数
+// ============================================================================
+
+fn roll_hit_chance(attacker_level: i32, defender_level: i32) -> bool {
+    let mut rng = rand::thread_rng();
+    let level_diff = attacker_level - defender_level;
+    let hit_chance = (80 + level_diff * 5).clamp(50, 95);
+    rng.gen_range(0..100) < hit_chance
+}
+
+fn roll_crit_chance(base_level: i32) -> bool {
+    let mut rng = rand::thread_rng();
+    let crit_chance = 10 + (base_level / 5);
+    rng.gen_range(0..100) < crit_chance
+}
+
+fn calc_defense_mitigation(raw_damage: i32, defense: i32) -> i32 {
+    let reduction = defense / 2;
+    (raw_damage - reduction).max(1)
+}
+
+fn apply_crit_damage(damage: i32, is_crit: bool) -> i32 {
+    if is_crit {
+        (damage as f32 * 1.5) as i32
+    } else {
+        damage
+    }
+}
+
+fn format_damage(damage: i32, is_crit: bool) -> String {
+    if is_crit {
+        format!("{}", damage.to_string().red().bold())
+    } else {
+        format!("{}", damage.to_string().red())
+    }
+}
+
+// ============================================================================
+// 公共导出函数
+// ============================================================================
+
 pub fn calculate_base_damage(attacker_stats: &CombatStats) -> i32 {
     let base = attacker_stats.attack;
     let level_bonus = attacker_stats.level * 2;
@@ -79,8 +121,7 @@ pub fn calculate_base_damage(attacker_stats: &CombatStats) -> i32 {
 }
 
 pub fn calculate_defense_reduction(damage: i32, defender_defense: i32) -> i32 {
-    let reduction = defender_defense / 2;
-    (damage - reduction).max(1)
+    calc_defense_mitigation(damage, defender_defense)
 }
 
 pub fn resolve_attack(
@@ -88,60 +129,71 @@ pub fn resolve_attack(
     defender_stats: &CombatStats,
     skill_opt: Option<&SkillTemplate>,
 ) -> CombatResult {
-    let mut rng = rand::thread_rng();
-
-    // Base hit rate is 80%, level difference affects it
-    let level_diff = attacker_stats.level - defender_stats.level;
-    let hit_chance = (80 + level_diff * 5).clamp(50, 95);
-
-    if rng.gen_range(0..100) > hit_chance {
+    if !roll_hit_chance(attacker_stats.level, defender_stats.level) {
         return CombatResult::Miss {
             log: format!(
-                "你{}对{}的攻击落空了！",
+                "{}身形如电，{}但见招式落空！",
                 attacker_stats.name.yellow(),
                 defender_stats.name.cyan()
             ),
         };
     }
 
-    let mut base_damage = calculate_base_damage(attacker_stats);
-
-    if let Some(skill) = skill_opt {
-        base_damage = calculate_skill_damage(
+    let base_damage = if let Some(skill) = skill_opt {
+        calculate_skill_damage(
             skill,
             attacker_stats.str,
             attacker_stats.dex,
             attacker_stats.int,
-        );
-    }
-
-    let crit_chance = 10 + (attacker_stats.level / 5);
-    let is_crit = rng.gen_range(0..100) < crit_chance;
-
-    if is_crit {
-        base_damage = (base_damage as f32 * 1.5) as i32;
-    }
-
-    let final_damage = calculate_defense_reduction(base_damage, defender_stats.defense);
-    let will_kill = defender_stats.hp - final_damage <= 0;
-
-    let log = if is_crit {
-        format!(
-            "你{}运转功法，对{}使出{}，造成了{}点{}！",
-            attacker_stats.name.yellow(),
-            defender_stats.name.cyan(),
-            skill_opt.map(|s| s.name.as_str()).unwrap_or("普通攻击"),
-            final_damage.to_string().red().bold(),
-            "暴击！".red().bold()
         )
     } else {
-        format!(
-            "你{}对{}使出{}，造成了{}点伤害。",
-            attacker_stats.name.yellow(),
-            defender_stats.name.cyan(),
-            skill_opt.map(|s| s.name.as_str()).unwrap_or("普通攻击"),
-            final_damage.to_string().red()
-        )
+        calculate_base_damage(attacker_stats)
+    };
+
+    let is_crit = roll_crit_chance(attacker_stats.level);
+    let damage_after_crit = apply_crit_damage(base_damage, is_crit);
+    let final_damage = calc_defense_mitigation(damage_after_crit, defender_stats.defense);
+    let will_kill = defender_stats.hp - final_damage <= 0;
+
+    let skill_name = skill_opt.map(|s| s.name.as_str()).unwrap_or("普通攻击");
+    let damage_str = format_damage(final_damage, is_crit);
+
+    let log = if is_crit {
+        if skill_opt.is_some() {
+            format!(
+                "{}周身灵气激荡，施展出【{}】，{}身受重创！\n→ [伤害: {}] {}!",
+                attacker_stats.name.yellow(),
+                skill_name,
+                defender_stats.name.cyan(),
+                damage_str,
+                "暴击".red().bold()
+            )
+        } else {
+            format!(
+                "{}身形如电，一记重击狠狠轰在{}身上！\n→ [伤害: {}] {}!",
+                attacker_stats.name.yellow(),
+                defender_stats.name.cyan(),
+                damage_str,
+                "暴击".red().bold()
+            )
+        }
+    } else {
+        if skill_opt.is_some() {
+            format!(
+                "{}催动真元，施展出【{}】，正中{}！\n→ [伤害: {}]",
+                attacker_stats.name.yellow(),
+                skill_name,
+                defender_stats.name.cyan(),
+                damage_str
+            )
+        } else {
+            format!(
+                "{}运转功法，对{}发起了攻击。\n→ [伤害: {}]",
+                attacker_stats.name.yellow(),
+                defender_stats.name.cyan(),
+                damage_str
+            )
+        }
     };
 
     if will_kill {
@@ -181,7 +233,7 @@ pub fn resolve_heal(skill: &SkillTemplate, healer_stats: &CombatStats) -> Combat
     CombatResult::Heal {
         amount: capped_heal,
         log: format!(
-            "你{}运转灵气，{}的治疗波笼罩了你自身，恢复了{}点生命！",
+            "{}闭目凝神，运转【{}】功法，\n淡蓝色灵气笼罩全身，恢复了{}点生命！",
             healer_stats.name.yellow(),
             skill.name.cyan(),
             capped_heal.to_string().green().bold()
@@ -197,66 +249,83 @@ pub fn get_skill_cost(skill: &SkillTemplate) -> (i32, i32) {
     (skill.cost_qi as i32, skill.cost_hp as i32)
 }
 
+// ============================================================================
+// 第二步：重构 process_combat_move (自动连招逻辑)
+// ============================================================================
+
 pub fn process_combat_move(
     attacker_stats: &CombatStats,
     defender_stats: &CombatStats,
     skill: &SkillTemplate,
     combo_index: usize,
 ) -> (i32, String, bool) {
-    let mut rng = rand::thread_rng();
-
     let moves = &skill.moves;
+
+    // 无连招时使用普通攻击逻辑
     if moves.is_empty() {
         let base_damage = calculate_base_damage(attacker_stats);
-        let final_damage = calculate_defense_reduction(base_damage, defender_stats.defense);
-        let is_crit = rng.gen_range(0..100) < 15;
-        let damage = if is_crit {
-            (final_damage as f32 * 1.5) as i32
+        let final_damage = calc_defense_mitigation(base_damage, defender_stats.defense);
+        let is_crit = roll_crit_chance(attacker_stats.level);
+        let damage = apply_crit_damage(final_damage, is_crit);
+
+        let log = if is_crit {
+            format!(
+                "{}身形如电，一记重击狠狠轰在{}身上！\n→ [伤害: {}] {}!",
+                attacker_stats.name.yellow(),
+                defender_stats.name.cyan(),
+                format_damage(damage, true),
+                "暴击".red().bold()
+            )
         } else {
-            final_damage
+            format!(
+                "{}运转功法，对{}发起了攻击。\n→ [伤害: {}]",
+                attacker_stats.name.yellow(),
+                defender_stats.name.cyan(),
+                format_damage(damage, false)
+            )
         };
-        let log = format!(
-            "{} 对 {} 发起了攻击，造成了 {} 点伤害",
-            attacker_stats.name.yellow(),
-            defender_stats.name.cyan(),
-            damage.to_string().red()
-        );
         return (damage, log, is_crit);
     }
 
+    // 连招逻辑：基础攻击力 + 技能伤害 → 乘以招式倍率 → 减去防御
     let move_idx = combo_index % moves.len();
     let mve = &moves[move_idx];
 
-    let base_damage = calculate_base_damage(attacker_stats);
-    let scaled_skill_damage = calculate_skill_damage(
+    let base_atk_damage = calculate_base_damage(attacker_stats);
+    let skill_damage = calculate_skill_damage(
         skill,
         attacker_stats.str,
         attacker_stats.dex,
         attacker_stats.int,
     );
-    let damage_with_multiplier = (scaled_skill_damage as f32 * mve.damage_multiplier) as i32;
-    let final_damage = calculate_defense_reduction(damage_with_multiplier, defender_stats.defense);
+    let combined_damage = base_atk_damage + skill_damage;
+    let damage_with_multiplier = (combined_damage as f32 * mve.damage_multiplier) as i32;
+    let final_damage_raw = calc_defense_mitigation(damage_with_multiplier, defender_stats.defense);
 
-    let is_crit = rng.gen_range(0..100) < 15;
-    let damage = if is_crit {
-        (final_damage as f32 * 1.5) as i32
-    } else {
-        final_damage
-    };
+    let is_crit = roll_crit_chance(attacker_stats.level);
+    let final_damage = apply_crit_damage(final_damage_raw, is_crit);
 
+    // 渲染招式描述
     let mut description = mve.description.clone();
     description = description.replace("{attacker}", &format!("{}", attacker_stats.name.yellow()));
     description = description.replace("{defender}", &format!("{}", defender_stats.name.cyan()));
 
-    if is_crit {
-        description.push_str(" ");
-        description.push_str(&format!("{}暴击！", "【暴击】".red().bold()));
-    }
+    // 构建日志：招式名 + 描述 + 伤害 + 暴击提示
+    let crit_text = if is_crit {
+        format!(" {}", "【暴击】".red().bold())
+    } else {
+        String::new()
+    };
 
-    let damage_text = format!("[伤害: {}]", damage.to_string().red().bold());
-    let log = format!("{} {}", damage_text, description);
+    let log = format!(
+        "【{}】{}\n→ [伤害: {}]{}",
+        mve.name.cyan(),
+        description,
+        format_damage(final_damage, is_crit),
+        crit_text
+    );
 
-    (damage, log, is_crit)
+    (final_damage, log, is_crit)
 }
 
 pub fn get_health_state_description(
