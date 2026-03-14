@@ -79,7 +79,8 @@ pub struct CombatStats {
 fn roll_hit_chance(attacker_level: i32, defender_level: i32) -> bool {
     let mut rng = rand::thread_rng();
     let level_diff = attacker_level - defender_level;
-    let hit_chance = (80 + level_diff * 5).clamp(50, 95);
+    // 基础命中率85%，最低70%，最高95%
+    let hit_chance = (85 + level_diff * 5).clamp(70, 95);
     rng.gen_range(0..100) < hit_chance
 }
 

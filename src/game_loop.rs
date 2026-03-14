@@ -226,6 +226,7 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
     }
     
     for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, msg_to_attacker, msg_to_defender, is_dead) in &updates {
+        // 玩家攻击 - 发送消息给攻击者
         if *attacker_is_player {
             let mut sessions = app_state.player_sessions.lock().unwrap();
             if let Some(session) = sessions.get_mut(attacker_id) {
@@ -237,6 +238,7 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
                 }
             }
             
+            // 如果目标是玩家，更新玩家HP并发送消息
             if *defender_is_player {
                 if let Some(session) = sessions.get_mut(defender_id) {
                     session.player.hp = *new_hp as u32;
@@ -253,6 +255,29 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
                         if let Ok(json) = serde_json::to_string(&msg) {
                             let _ = session.sender.try_send(Message::Text(json));
                         }
+                    }
+                }
+            }
+            drop(sessions);
+        }
+        
+        // NPC攻击玩家 - 更新玩家HP并发送被攻击消息
+        if !*attacker_is_player && *defender_is_player {
+            let mut sessions = app_state.player_sessions.lock().unwrap();
+            if let Some(session) = sessions.get_mut(defender_id) {
+                session.player.hp = *new_hp as u32;
+                if !msg_to_defender.is_empty() {
+                    let msg = ServerMessage::Description { payload: msg_to_defender.clone() };
+                    if let Ok(json) = serde_json::to_string(&msg) {
+                        let _ = session.sender.try_send(Message::Text(json));
+                    }
+                }
+                if *is_dead {
+                    session.player.combat_state = None;
+                    let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", session.player.name.yellow());
+                    let msg = ServerMessage::Description { payload: death_msg };
+                    if let Ok(json) = serde_json::to_string(&msg) {
+                        let _ = session.sender.try_send(Message::Text(json));
                     }
                 }
             }
