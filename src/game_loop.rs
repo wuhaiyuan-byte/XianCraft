@@ -286,6 +286,14 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
     
     for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
         if !*defender_is_player {
+            // 无论NPC是否还存在，都清除玩家的战斗状态
+            let attacker_id: u64 = attacker_id.to_string().parse().unwrap_or(0);
+            let mut sessions = app_state.player_sessions.lock().unwrap();
+            if let Some(session) = sessions.get_mut(&attacker_id) {
+                session.player.combat_state = None;
+            }
+            drop(sessions);
+            
             if *is_dead {
                 let mut data = app_state.world_state.dynamic_data.lock().unwrap();
                 if let Some(npc) = data.npcs.get(defender_id) {
@@ -294,10 +302,8 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
                     data.npcs.remove(defender_id);
                     drop(data);
                     
-                    let attacker_id: u64 = attacker_id.to_string().parse().unwrap_or(0);
                     let mut sessions = app_state.player_sessions.lock().unwrap();
                     if let Some(session) = sessions.get_mut(&attacker_id) {
-                        session.player.combat_state = None;
                         let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", npc_name.yellow());
                         let msg = ServerMessage::Description { payload: death_msg };
                         if let Ok(json) = serde_json::to_string(&msg) {
@@ -308,20 +314,6 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
                         if !quest_msg.is_empty() {
                             if let Ok(json) = serde_json::to_string(&ServerMessage::Info { payload: quest_msg }) {
                                 let _ = session.sender.try_send(Message::Text(json));
-                            }
-                        }
-                    }
-                }
-            } else {
-                let mut data = app_state.world_state.dynamic_data.lock().unwrap();
-                if let Some(npc) = data.npcs.get_mut(defender_id) {
-                    npc.hp = *new_hp;
-                    if let Some(cs) = &mut npc.combat_state {
-                        if let Some(skill) = app_state.world_state.static_data.skills.get(&cs.current_skill_id) {
-                            if cs.combo_index + 1 >= skill.moves.len() {
-                                cs.combo_index = 0;
-                            } else {
-                                cs.combo_index += 1;
                             }
                         }
                     }
