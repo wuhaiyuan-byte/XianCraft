@@ -1,9 +1,9 @@
 use crate::npc::Npc;
-use crate::world::loader::StaticWorldData;
+use crate::world::world_loader::StaticWorldData;
 use crate::world_model::Room;
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use rand::seq::SliceRandom;
 
 // Represents the dynamic, mutable state of the game world.
 pub struct DynamicData {
@@ -46,12 +46,12 @@ impl WorldState {
             for npc_prototype_id in &room.npcs {
                 if let Some(prototype) = static_data.npc_prototypes.get(npc_prototype_id) {
                     let mut npc = Npc::from_prototype(
-                        dynamic_data.next_npc_id, 
-                        *npc_prototype_id, 
-                        prototype, 
+                        dynamic_data.next_npc_id,
+                        *npc_prototype_id,
+                        prototype,
                         room.id.clone(),
                     );
-                    
+
                     // Try to load combat stats from monsters.json using monster name
                     let monster_key = npc.name.clone();
                     let mut found = false;
@@ -70,7 +70,7 @@ impl WorldState {
                         // Default combat stats if no monster template found
                         npc.init_combat_stats(50, 10, 2);
                     }
-                    
+
                     dynamic_data.npcs.insert(dynamic_data.next_npc_id, npc);
                     dynamic_data.next_npc_id += 1;
                 }
@@ -91,15 +91,19 @@ impl WorldState {
 
     pub fn move_player_to_room(&self, player_id: u64, to_room_id: &str, user_name: Option<String>) {
         let mut data = self.dynamic_data.lock().unwrap();
-        data.players.insert(player_id, PlayerLocation { 
-            room_id: to_room_id.to_string(),
-            user_name,
-        });
+        data.players.insert(
+            player_id,
+            PlayerLocation {
+                room_id: to_room_id.to_string(),
+                user_name,
+            },
+        );
     }
 
     pub fn get_players_in_room(&self, room_id: &str, exclude_player_id: u64) -> Vec<String> {
         let data = self.dynamic_data.lock().unwrap();
-        data.players.iter()
+        data.players
+            .iter()
             .filter(|(id, loc)| **id != exclude_player_id && loc.room_id == room_id)
             .filter_map(|(_, loc)| loc.user_name.clone())
             .collect()
@@ -113,12 +117,18 @@ impl WorldState {
     }
 
     pub fn get_player_room_id(&self, player_id: u64) -> Option<String> {
-        self.dynamic_data.lock().unwrap().players.get(&player_id).map(|loc| loc.room_id.clone())
+        self.dynamic_data
+            .lock()
+            .unwrap()
+            .players
+            .get(&player_id)
+            .map(|loc| loc.room_id.clone())
     }
 
     pub fn get_npcs_in_room(&self, room_id: &str) -> Vec<Npc> {
         let data = self.dynamic_data.lock().unwrap();
-        data.npcs.values()
+        data.npcs
+            .values()
             .filter(|npc| npc.current_room == room_id)
             .cloned()
             .collect()
@@ -131,7 +141,10 @@ impl WorldState {
 
     pub fn add_item_to_room(&self, room_id: &str, item_id: u32) {
         let mut data = self.dynamic_data.lock().unwrap();
-        data.room_items.entry(room_id.to_string()).or_default().push(item_id);
+        data.room_items
+            .entry(room_id.to_string())
+            .or_default()
+            .push(item_id);
     }
 
     pub fn remove_item_from_room(&self, room_id: &str, item_id: u32) -> bool {
@@ -151,11 +164,17 @@ impl WorldState {
 
         for room in self.static_data.rooms.values() {
             // Check if room has npcs and if it is a wild/respawn zone
-            if room.npcs.is_empty() { continue; }
-            
+            if room.npcs.is_empty() {
+                continue;
+            }
+
             // Count current npcs in this room
-            let current_count = data.npcs.values().filter(|n| n.current_room == room.id).count();
-            
+            let current_count = data
+                .npcs
+                .values()
+                .filter(|n| n.current_room == room.id)
+                .count();
+
             // If empty, respawn one random monster from the room's list
             if current_count == 0 {
                 if let Some(&proto_id) = room.npcs.choose(&mut rand::thread_rng()) {

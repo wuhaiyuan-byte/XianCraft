@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::world::loader::load_all_data;
+    use crate::world::world_loader::load_all_data;
     use crate::world::world_state::WorldState;
     use std::sync::Arc;
 

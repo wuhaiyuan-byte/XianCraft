@@ -1,5 +1,5 @@
 use anyhow::Result;
-use server::world::loader::load_all_data;
+use server::world::world_loader::load_all_data;
 use server::world::world_state::WorldState;
 use std::env;
 use std::sync::Arc;

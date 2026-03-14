@@ -1,4 +1,4 @@
-use super::room::Room;
+use super::world_room::Room;
 use serde::Deserialize;
 use std::collections::HashMap;
 

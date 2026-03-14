@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::world::loader::load_all_data;
-    use crate::world::player::{Player, PlayerQuestStatus};
+    use crate::world::world_loader::load_all_data;
+    use crate::world::world_player::{Player, PlayerQuestStatus};
     use crate::world::world_state::WorldState;
     use crate::world_model::Quest;
     use std::sync::Arc;

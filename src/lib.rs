@@ -37,7 +37,7 @@ use colored::*;
 
 use crate::command::{parse, Command};
 use crate::npc::Npc;
-use crate::world::player::{Player, PlayerQuestStatus};
+use crate::world::world_player::{Player, PlayerQuestStatus};
 use crate::world::world_state::WorldState;
 
 #[derive(Deserialize)]

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::world::player::Player;
+    use crate::world::world_player::Player;
 
     #[test]
     fn test_realm_and_level_up_system() {

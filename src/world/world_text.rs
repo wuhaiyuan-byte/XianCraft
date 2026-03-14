@@ -1,4 +1,4 @@
-use crate::world::player::Player;
+use crate::world::world_player::Player;
 
 /// Holds the context for rendering a combat message.
 #[derive(Debug)]
@@ -27,7 +27,7 @@ pub fn render(template: &str, context: &RenderContext) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::player::Player;
+    use crate::world::world_player::Player;
 
     #[test]
     fn test_render_combat_message() {

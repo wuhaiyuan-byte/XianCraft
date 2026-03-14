@@ -3,8 +3,8 @@ mod tests {
     use crate::command::parse;
     use crate::generate_who_list;
     use crate::handle_command;
-    use crate::world::loader::load_all_data;
-    use crate::world::player::Player;
+    use crate::world::world_loader::load_all_data;
+    use crate::world::world_player::Player;
     use crate::world::world_state::WorldState;
     use crate::{AppState, PlayerSession};
     use std::collections::HashMap;

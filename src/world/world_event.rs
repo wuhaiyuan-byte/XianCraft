@@ -25,13 +25,19 @@ pub trait Event: Any + Send + Sync {
 }
 
 impl Event for PlayerAttackEvent {
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 impl Event for PlayerKilledEvent {
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 impl Event for SkillPerformedEvent {
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 // --- Event Handler ---
