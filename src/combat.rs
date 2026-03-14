@@ -2,6 +2,7 @@ use crate::world_model::SkillTemplate;
 use colored::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use tracing;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CombatResult {
@@ -118,7 +119,16 @@ fn format_damage(damage: i32, is_crit: bool) -> String {
 pub fn calculate_base_damage(attacker_stats: &CombatStats) -> i32 {
     let base = attacker_stats.attack;
     let level_bonus = attacker_stats.level * 2;
-    base + level_bonus
+    let result = base + level_bonus;
+    tracing::debug!(
+        "[COMBAT] {} 基础伤害计算: attack={}, level={}, level_bonus={}, result={}",
+        attacker_stats.name,
+        base,
+        attacker_stats.level,
+        level_bonus,
+        result
+    );
+    result
 }
 
 pub fn calculate_defense_reduction(damage: i32, defender_defense: i32) -> i32 {
@@ -130,7 +140,25 @@ pub fn resolve_attack(
     defender_stats: &CombatStats,
     skill_opt: Option<&SkillTemplate>,
 ) -> CombatResult {
+    // 记录战斗参数
+    let hit_chance = (85 + (attacker_stats.level - defender_stats.level) * 5).clamp(70, 95);
+    let crit_chance = 10 + (attacker_stats.level / 5);
+
+    tracing::info!(
+        "[COMBAT] {} 攻击 {} | 命中率:{}% 暴击率:{}% | HP:{}/{} ATK:{} DEF:{} LVL:{}",
+        attacker_stats.name,
+        defender_stats.name,
+        hit_chance,
+        crit_chance,
+        attacker_stats.hp,
+        attacker_stats.max_hp,
+        attacker_stats.attack,
+        attacker_stats.defense,
+        attacker_stats.level
+    );
+
     if !roll_hit_chance(attacker_stats.level, defender_stats.level) {
+        tracing::debug!("[COMBAT] 攻击落空!");
         return CombatResult::Miss {
             log: format!(
                 "{}身形如电，{}但见招式落空！",
@@ -155,6 +183,11 @@ pub fn resolve_attack(
     let damage_after_crit = apply_crit_damage(base_damage, is_crit);
     let final_damage = calc_defense_mitigation(damage_after_crit, defender_stats.defense);
     let will_kill = defender_stats.hp - final_damage <= 0;
+
+    tracing::info!(
+        "[COMBAT] 伤害计算: base_damage={}, crit_damage={}, defense={}, final_damage={}, is_crit={}, will_kill={}",
+        base_damage, damage_after_crit, defender_stats.defense, final_damage, is_crit, will_kill
+    );
 
     let skill_name = skill_opt.map(|s| s.name.as_str()).unwrap_or("普通攻击");
     let damage_str = format_damage(final_damage, is_crit);
