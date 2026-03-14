@@ -6,6 +6,9 @@ pub mod npc;
 pub mod world;
 pub mod world_model;
 pub mod combat;
+pub mod ui;
+pub mod game_loop;
+pub mod commands;
 
 use axum::{
     extract::{
@@ -27,12 +30,10 @@ use std::{
     time::SystemTime as StdSystemTime,
 };
 use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
 use tower_http::services::ServeDir;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-// Import the colored crate functionality
 use colored::*;
 
 use crate::command::{parse, Command};
@@ -47,94 +48,24 @@ enum ClientMessage {
     Command { command: String },
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(tag = "type")]
-enum ServerMessage {
+pub enum ServerMessage {
     Description { payload: String },
     Info { payload: String },
     Error { payload: String },
 }
 
-struct AppState {
-    world_state: WorldState,
-    player_sessions: Mutex<HashMap<u64, PlayerSession>>,
+pub struct AppState {
+    pub world_state: WorldState,
+    pub player_sessions: Mutex<HashMap<u64, PlayerSession>>,
 }
 
 #[derive(Clone)]
-struct PlayerSession {
+pub struct PlayerSession {
     player: Player,
-    user_id: Option<String>,
+    pub user_id: Option<String>,
     sender: mpsc::Sender<Message>,
-}
-
-// This function builds the welcome message using truecolor.
-fn build_welcome_message() -> String {
-    // Define our palette
-    let pink = (255, 105, 180); // Hot Pink
-    let purple = (218, 112, 214); // Orchid
-    let white = (255, 255, 255);
-
-    let line1 = format!("      {}  {}  {}",
-        "✧･ﾟ: *✧･ﾟ:*".truecolor(pink.0, pink.1, pink.2),
-        "ଘ(◕‿◕✿)ଓ".truecolor(purple.0, purple.1, purple.2),
-        "*:･ﾟ✧*:･ﾟ✧".truecolor(pink.0, pink.1, pink.2)
-    );
-
-    let line2 = format!("    {}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".truecolor(purple.0, purple.1, purple.2));
-
-    let line3 = format!("       {} {}",
-        "(つ◕౪◕)つ".truecolor(pink.0, pink.1, pink.2),
-        "⚔️  剑 灵 少 女 の 招 待  ⚔️".bold().truecolor(white.0, white.1, white.2)
-    );
-    
-    let line4 = line2.clone();
-
-    let line6 = format!("      {}", "“欧尼酱！快握紧这把灵剑，一起踏上登仙之路吧~”".bold().truecolor(pink.0, pink.1, pink.2));
-    
-    let line8 = format!("             {}  {}  {}  {}  {}",
-        "✦".truecolor(purple.0, purple.1, purple.2),
-        "✧".truecolor(pink.0, pink.1, pink.2),
-        "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧".truecolor(white.0, white.1, white.2),
-        "✧".truecolor(pink.0, pink.1, pink.2),
-        "✦".truecolor(purple.0, purple.1, purple.2)
-    );
-
-    format!("{}
-{}
-{}
-{}
-{}
-
-{}
-
-{}
-", line1, line2, line3, line4, line6, line8, "")
-}
-
-pub(crate) fn realm_level_to_name(level: u16, sub_level: u16) -> String {
-    match level {
-        1 => format!("炼气{}层", match sub_level {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五",
-            6 => "六", 7 => "七", 8 => "八", 9 => "九", _ => "?",
-        }),
-        2 => format!("筑基{}层", match sub_level {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五",
-            6 => "六", 7 => "七", 8 => "八", 9 => "九", _ => "?",
-        }),
-        3 => format!("金丹{}层", match sub_level {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五",
-            6 => "六", 7 => "七", 8 => "八", 9 => "九", _ => "?",
-        }),
-        4 => format!("元婴{}层", match sub_level {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五",
-            6 => "六", 7 => "七", 8 => "八", 9 => "九", _ => "?",
-        }),
-        5 => format!("化神{}层", match sub_level {
-            1 => "一", 2 => "二", 3 => "三", 4 => "四", 5 => "五",
-            6 => "六", 7 => "七", 8 => "八", 9 => "九", _ => "?",
-        }),
-        _ => format!("境界{}", level),
-    }
 }
 
 fn broadcast_room_movement(state: &Arc<AppState>, from_room: &str, to_room: &str, user_name: &Option<String>) {
@@ -174,194 +105,6 @@ fn broadcast_room_movement(state: &Arc<AppState>, from_room: &str, to_room: &str
     }
 }
 
-pub(crate) fn generate_who_list(state: &Arc<AppState>, use_color: bool) -> String {
-    let players_data: Vec<(String, u16, u16, String, u64, bool)> = {
-        let sessions = state.player_sessions.lock().unwrap();
-        sessions
-            .values()
-            .filter(|s| s.user_id.is_some())
-            .map(|s| {
-                (
-                    s.player.name.clone(),
-                    s.player.realm_level,
-                    s.player.realm_sub_level,
-                    s.player.sect.clone().unwrap_or_else(|| "无".to_string()),
-                    s.player.id,
-                    s.player.is_resting,
-                )
-            })
-            .collect()
-    };
-    
-    let world = &state.world_state;
-    
-    let mut players: Vec<(String, String, String, String)> = players_data
-        .into_iter()
-        .map(|(name, realm_level, realm_sub_level, sect, player_id, is_resting)| {
-            let realm = realm_level_to_name(realm_level, realm_sub_level);
-            let status = {
-                let npcs = world.get_npcs_in_room(&world.get_player_room_id(player_id).unwrap_or_default());
-                let in_combat = npcs.iter().any(|npc| {
-                    if let Some(proto) = world.static_data.npc_prototypes.get(&npc.prototype_id) {
-                        (proto.ai == "monster" || !proto.flags.contains(&"friendly".to_string())) 
-                            && npc.combat_target == Some(player_id)
-                    } else {
-                        false
-                    }
-                });
-                if in_combat {
-                    "战斗中".to_string()
-                } else if is_resting {
-                    "打坐中".to_string()
-                } else {
-                    "游历中".to_string()
-                }
-            };
-            (name, realm, sect, status)
-        })
-        .collect();
-    
-    players.sort_by(|a, b| {
-        let a_level = parse_realm_level(&a.1);
-        let b_level = parse_realm_level(&b.1);
-        b_level.cmp(&a_level)
-    });
-    
-    let count = players.len();
-    
-    let name_width = 16;
-    let realm_width = 16;
-    let sect_width = 12;
-    let status_width = 12;
-    
-    let header_line = format!("┌{}┬{}┬{}┬{}┐", 
-        "─".repeat(name_width), "─".repeat(realm_width), "─".repeat(sect_width), "─".repeat(status_width));
-    let sep_line = format!("├{}┼{}┼{}┼{}┤", 
-        "─".repeat(name_width), "─".repeat(realm_width), "─".repeat(sect_width), "─".repeat(status_width));
-    let footer_line = format!("└{}┴{}┴{}┴{}┘", 
-        "─".repeat(name_width), "─".repeat(realm_width), "─".repeat(sect_width), "─".repeat(status_width));
-    
-    let mut output = String::new();
-    
-    if use_color {
-        output.push_str(&format!("{}\n", "【 仙 界 同 道 】".magenta().bold()));
-        output.push_str(&format!("{}\n", header_line.truecolor(180, 100, 200)));
-        output.push_str(&format!("│{}│{}│{}│{}│\n", 
-            pad_to_width("姓 名", name_width - 2).white(),
-            pad_to_width("境 界", realm_width - 2).white(),
-            pad_to_width("宗 门", sect_width - 2).white(),
-            pad_to_width("当前状态", status_width - 2).white()));
-        output.push_str(&format!("{}\n", sep_line.truecolor(180, 100, 200)));
-    } else {
-        output.push_str("【 仙 界 同 道 】\n");
-        output.push_str(&format!("{}\n", header_line));
-        output.push_str(&format!("│{}│{}│{}│{}│\n", 
-            pad_to_width("姓 名", name_width - 2),
-            pad_to_width("境 界", realm_width - 2),
-            pad_to_width("宗 门", sect_width - 2),
-            pad_to_width("当前状态", status_width - 2)));
-        output.push_str(&format!("{}\n", sep_line));
-    }
-    
-    if players.is_empty() {
-        let empty_msg = "暂无其他玩家在线";
-        if use_color {
-            output.push_str(&format!("│{}│{}│{}│{}│\n", 
-                " ".repeat(name_width - 2), " ".repeat(realm_width - 2), 
-                pad_to_width(empty_msg, sect_width - 2).yellow(), " ".repeat(status_width - 2)));
-        } else {
-            output.push_str(&format!("│{}│{}│{}│{}│\n", 
-                " ".repeat(name_width - 2), " ".repeat(realm_width - 2), 
-                pad_to_width(empty_msg, sect_width - 2), " ".repeat(status_width - 2)));
-        }
-    } else {
-        for (name, realm, sect, status) in &players {
-            if use_color {
-                let status_str = if status == "战斗中" {
-                    format!("{}", status.red().bold())
-                } else if status == "打坐中" {
-                    format!("{}", status.cyan())
-                } else {
-                    format!("{}", status.green())
-                };
-                output.push_str(&format!("│{}│{}│{}│{}│\n", 
-                    pad_to_width(name, name_width - 2).green().bold(), 
-                    pad_to_width(realm, realm_width - 2).truecolor(200, 150, 255), 
-                    pad_to_width(sect, sect_width - 2).yellow(),
-                    pad_to_width(&status_str, status_width - 2)));
-            } else {
-                output.push_str(&format!("│{}│{}│{}│{}│\n", 
-                    pad_to_width(name, name_width - 2), 
-                    pad_to_width(realm, realm_width - 2), 
-                    pad_to_width(sect, sect_width - 2),
-                    pad_to_width(status, status_width - 2)));
-            }
-        }
-    }
-    
-    if use_color {
-        output.push_str(&format!("{}\n", footer_line.truecolor(180, 100, 200)));
-        output.push_str(&format!("{}", format!("  ★ 当前共有 {}位 道友在线 ★ ", count).white().bold()));
-    } else {
-        output.push_str(&format!("{}\n", footer_line));
-        output.push_str(&format!("{}", format!("  ★ 当前共有 {}位 道友在线 ★ ", count)));
-    }
-    
-    output
-}
-
-fn pad_to_width(s: &str, width: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count >= width {
-        return s.to_string();
-    }
-    let padding = width - char_count;
-    let left = padding / 2;
-    let right = padding - left;
-    format!("{}{}{}", " ".repeat(left), s, " ".repeat(right))
-}
-
-fn parse_realm_level(realm: &str) -> (u16, u16) {
-    let level = if realm.starts_with("炼气") {
-        1
-    } else if realm.starts_with("筑基") {
-        2
-    } else if realm.starts_with("金丹") {
-        3
-    } else if realm.starts_with("元婴") {
-        4
-    } else if realm.starts_with("化神") {
-        5
-    } else {
-        0
-    };
-    
-    let sub = if realm.contains("一") {
-        1
-    } else if realm.contains("二") {
-        2
-    } else if realm.contains("三") {
-        3
-    } else if realm.contains("四") {
-        4
-    } else if realm.contains("五") {
-        5
-    } else if realm.contains("六") {
-        6
-    } else if realm.contains("七") {
-        7
-    } else if realm.contains("八") {
-        8
-    } else if realm.contains("九") {
-        9
-    } else {
-        0
-    };
-    
-    (level, sub)
-}
-
-
 pub async fn run(world_state: WorldState) {
     tracing_subscriber::registry()
         .with(
@@ -378,10 +121,9 @@ pub async fn run(world_state: WorldState) {
 
     let game_loop_state = app_state.clone();
     tokio::spawn(async move {
-        game_loop(game_loop_state).await;
+        game_loop::game_loop(game_loop_state).await;
     });
 
-    // Use STATIC_DIR env var for the frontend assets, defaulting to "client/dist" for local dev.
     let static_dir = env::var("STATIC_DIR").unwrap_or_else(|_| "client/dist".to_string());
     info!("Serving static files from: {}", static_dir);
 
@@ -402,371 +144,11 @@ pub async fn run(world_state: WorldState) {
         .unwrap();
 }
 
-async fn game_loop(app_state: Arc<AppState>) {
-    let mut tick_counter: u64 = 0;
-    const RECOVERY_TICK_INTERVAL: u64 = 10;
-    
-    let combat_tick_ms = app_state.world_state.static_data.config.combat_tick_ms;
-    let combat_tick_interval = combat_tick_ms / 1000;
-    if combat_tick_interval == 0 {
-        tracing::warn!("combat_tick_ms too small, using default 1 second");
-    }
-
-    loop {
-        sleep(Duration::from_secs(1)).await;
-        tick_counter += 1;
-
-        if tick_counter % RECOVERY_TICK_INTERVAL == 0 {
-            let now = StdSystemTime::now()
-                .duration_since(StdSystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-
-            let mut sessions = app_state.player_sessions.lock().unwrap();
-            for session in sessions.values_mut() {
-                if session.user_id.is_none() {
-                    continue;
-                }
-
-                session.player.on_heartbeat_recovery();
-
-                let room_id = app_state.world_state.get_player_room_id(session.player.id).unwrap_or_default();
-                if (room_id == "bamboo_forest" || room_id == "spirit_spring") && now - session.player.last_input_time > 30 {
-                    let hint = ServerMessage::Info { 
-                        payload: "[提示]：你现在应该尝试输入 work 指令来进行伐木。记得随时输入 score 查看你的体力值。".cyan().to_string() 
-                    };
-                    if let Ok(json) = serde_json::to_string(&hint) {
-                        let _ = session.sender.try_send(Message::Text(json));
-                    }
-                    session.player.last_input_time = now;
-                }
-            }
-        }
-
-        if tick_counter % combat_tick_interval.max(1) == 0 {
-            process_combat_ticks(&app_state).await;
-        }
-    }
-}
-
-async fn process_combat_ticks(app_state: &Arc<AppState>) {
-    #[derive(Clone)]
-    struct CombatEntity {
-        id: u64,
-        is_player: bool,
-        hp: i32,
-        max_hp: i32,
-        atk: i32,
-        defense: i32,
-        level: i32,
-        name: String,
-        target_id: Option<String>,
-        target_is_player: bool,
-        skill_id: String,
-        combo_index: usize,
-    }
-    
-    let mut combat_entities: Vec<CombatEntity> = Vec::new();
-    
-    // Extract players in combat
-    {
-        let sessions = app_state.player_sessions.lock().unwrap();
-        for (id, session) in sessions.iter() {
-            if session.user_id.is_some() {
-                if let Some(cs) = &session.player.combat_state {
-                    combat_entities.push(CombatEntity {
-                        id: *id,
-                        is_player: true,
-                        hp: session.player.hp as i32,
-                        max_hp: session.player.hp_max as i32,
-                        atk: session.player.atk as i32,
-                        defense: 5,
-                        level: session.player.realm_level as i32,
-                        name: session.player.name.clone(),
-                        target_id: Some(cs.target_id.clone()),
-                        target_is_player: cs.target_is_player,
-                        skill_id: cs.current_skill_id.clone(),
-                        combo_index: cs.combo_index,
-                    });
-                }
-            }
-        }
-    }
-    
-    // Extract NPCs in combat
-    {
-        let data = app_state.world_state.dynamic_data.lock().unwrap();
-        let npcs_in_combat: Vec<_> = data.npcs.iter()
-            .filter(|(_, npc)| npc.combat_state.is_some())
-            .collect();
-        tracing::debug!("NPCs in combat: {:?}", npcs_in_combat.len());
-        
-        for (instance_id, npc) in npcs_in_combat {
-            if let Some(cs) = &npc.combat_state {
-                combat_entities.push(CombatEntity {
-                    id: *instance_id,
-                    is_player: false,
-                    hp: npc.hp,
-                    max_hp: npc.max_hp as i32,
-                    atk: npc.attack as i32,
-                    defense: npc.defense as i32,
-                    level: npc.level as i32,
-                    name: npc.name.clone(),
-                    target_id: Some(cs.target_id.clone()),
-                    target_is_player: cs.target_is_player,
-                    skill_id: cs.current_skill_id.clone(),
-                    combo_index: cs.combo_index,
-                });
-            }
-        }
-    }
-    
-    tracing::debug!("Total combat entities: {:?}", combat_entities.len());
-    
-    // Compute combat results
-    // (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, message_to_attacker, message_to_defender, is_dead)
-    let mut updates: Vec<(u64, bool, u64, bool, i32, String, String, bool)> = Vec::new();
-    
-    for entity in &combat_entities {
-        if let Some(target_id_str) = &entity.target_id {
-            let target_id: u64 = target_id_str.parse().unwrap_or(0);
-            
-            let target = combat_entities.iter().find(|e| {
-                if entity.target_is_player {
-                    e.is_player && e.id == target_id
-                } else {
-                    !e.is_player && e.id == target_id
-                }
-            });
-            
-            if let Some(target) = target {
-                let attacker_stats = combat::CombatStats {
-                    hp: entity.hp,
-                    max_hp: entity.max_hp,
-                    attack: entity.atk,
-                    defense: entity.defense,
-                    level: entity.level,
-                    name: entity.name.clone(),
-                    is_player: entity.is_player,
-                    str: 10,
-                    dex: 10,
-                    int: 10,
-                };
-                
-                let defender_stats = combat::CombatStats {
-                    hp: target.hp,
-                    max_hp: target.max_hp,
-                    attack: target.atk,
-                    defense: target.defense,
-                    level: target.level,
-                    name: target.name.clone(),
-                    is_player: target.is_player,
-                    str: 10,
-                    dex: 10,
-                    int: 10,
-                };
-                
-                let skill = app_state.world_state.static_data.skills.get(&entity.skill_id);
-                let skill_name = skill.map(|s| s.name.clone()).unwrap_or_else(|| entity.skill_id.clone());
-                let result = combat::resolve_attack(&attacker_stats, &defender_stats, skill);
-                
-                match result {
-                    combat::CombatResult::Hit { damage, log, is_crit: _ } => {
-                        let new_hp = (target.hp - damage).max(0);
-                        let hp_percent = (new_hp as f32 / target.max_hp as f32 * 100.0) as i32;
-                        
-                        let health_state = if hp_percent > 80 {
-                            "真元充沛，毫发无损"
-                        } else if hp_percent > 50 {
-                            "气息微乱，护体灵光闪烁"
-                        } else if hp_percent > 20 {
-                            "发丝凌乱，嘴角溢出一丝鲜血"
-                        } else {
-                            "摇摇欲坠，犹如风中残烛"
-                        };
-                        
-                        let new_hp_defender = new_hp;
-                        
-                        let msg_to_attacker = if entity.is_player {
-                            format!("你对{}使出{},\n造成了{}点伤害。\n{}", 
-                                target.name, skill_name, damage, health_state.yellow())
-                        } else {
-                            format!("{}对你使出{},\n造成了{}点伤害。\n{}", 
-                                entity.name, skill_name, damage, health_state.yellow())
-                        };
-                        
-                        let msg_to_defender = if target.is_player {
-                            format!("你对{}使出{},\n造成了{}点伤害。\n{}", 
-                                entity.name, skill_name, damage, health_state.yellow())
-                        } else {
-                            format!("{}对你使出{},\n造成了{}点伤害。\n{}", 
-                                entity.name, skill_name, damage, health_state.yellow())
-                        };
-                        
-                        updates.push((entity.id, entity.is_player, target.id, target.is_player, new_hp_defender, msg_to_attacker, msg_to_defender, new_hp <= 0));
-                    }
-                    combat::CombatResult::Miss { log } => {
-                        let msg_to_attacker = if entity.is_player {
-                            format!("你对{}的攻击落空了！", target.name)
-                        } else {
-                            format!("{}对你的攻击落空了！", entity.name)
-                        };
-                        
-                        let msg_to_defender = if target.is_player {
-                            format!("你对{}的攻击落空了！", entity.name)
-                        } else {
-                            format!("{}的攻击落空了！", entity.name)
-                        };
-                        
-                        updates.push((entity.id, entity.is_player, target.id, target.is_player, target.hp, msg_to_attacker, msg_to_defender, false));
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-    
-    // Apply updates for players
-    for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, msg_to_attacker, msg_to_defender, is_dead) in &updates {
-        if *attacker_is_player {
-            let mut sessions = app_state.player_sessions.lock().unwrap();
-            if let Some(session) = sessions.get_mut(attacker_id) {
-                if !msg_to_attacker.is_empty() {
-                    let msg = ServerMessage::Description { payload: msg_to_attacker.clone() };
-                    if let Ok(json) = serde_json::to_string(&msg) {
-                        let _ = session.sender.try_send(Message::Text(json));
-                    }
-                }
-            }
-            
-            if *defender_is_player {
-                if let Some(session) = sessions.get_mut(defender_id) {
-                    session.player.hp = *new_hp as u32;
-                    if !msg_to_defender.is_empty() {
-                        let msg = ServerMessage::Description { payload: msg_to_defender.clone() };
-                        if let Ok(json) = serde_json::to_string(&msg) {
-                            let _ = session.sender.try_send(Message::Text(json));
-                        }
-                    }
-                    if *is_dead {
-                        session.player.combat_state = None;
-                        let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", session.player.name.yellow());
-                        let msg = ServerMessage::Description { payload: death_msg };
-                        if let Ok(json) = serde_json::to_string(&msg) {
-                            let _ = session.sender.try_send(Message::Text(json));
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    // Apply updates for NPCs (HP, death)
-    for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
-        if !*defender_is_player {
-            if *is_dead {
-                let mut data = app_state.world_state.dynamic_data.lock().unwrap();
-                if let Some(npc) = data.npcs.get(defender_id) {
-                    let npc_proto_id = npc.prototype_id;
-                    let npc_name = npc.name.clone();
-                    let npc_combat_state = npc.combat_state.clone();
-                    data.npcs.remove(defender_id);
-                    drop(data);
-                    
-                    // Notify attacker
-                    let attacker_id: u64 = attacker_id.to_string().parse().unwrap_or(0);
-                    let mut sessions = app_state.player_sessions.lock().unwrap();
-                    if let Some(session) = sessions.get_mut(&attacker_id) {
-                        session.player.combat_state = None;
-                        let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", npc_name.yellow());
-                        let msg = ServerMessage::Description { payload: death_msg };
-                        if let Ok(json) = serde_json::to_string(&msg) {
-                            let _ = session.sender.try_send(Message::Text(json));
-                        }
-                        
-                        let quest_msg = session.player.on_kill(&npc_proto_id.to_string(), &app_state.world_state.static_data.quests);
-                        if !quest_msg.is_empty() {
-                            if let Ok(json) = serde_json::to_string(&ServerMessage::Info { payload: quest_msg }) {
-                                let _ = session.sender.try_send(Message::Text(json));
-                            }
-                        }
-                    }
-                }
-            } else {
-                let mut data = app_state.world_state.dynamic_data.lock().unwrap();
-                if let Some(npc) = data.npcs.get_mut(defender_id) {
-                    npc.hp = *new_hp;
-                    // Update combo index
-                    if let Some(cs) = &mut npc.combat_state {
-                        if let Some(skill) = app_state.world_state.static_data.skills.get(&cs.current_skill_id) {
-                            if cs.combo_index + 1 >= skill.moves.len() {
-                                cs.combo_index = 0;
-                            } else {
-                                cs.combo_index += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 async fn websocket_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     ws.on_upgrade(|socket| websocket(socket, state))
-}
-
-fn get_full_room_description(
-    room_id: &str, 
-    world_state: &WorldState, 
-    other_players: Vec<String>,
-    npcs_in_room: Vec<Npc>,
-    room_items: Vec<u32>,
-) -> String {
-    if let Some(room) = world_state.get_room(room_id) {
-        let mut full_desc = format!("{}
-{}", room.name.cyan().bold(), room.description);
-
-        if !other_players.is_empty() {
-            let player_list: Vec<String> = other_players.iter().map(|n| n.green().to_string()).collect();
-            full_desc.push_str(&format!("
-你在此处看到了：{}", player_list.join(", ")));
-        }
-
-        if !npcs_in_room.is_empty() {
-            let npc_names: Vec<String> = npcs_in_room
-                .iter()
-                .map(|npc| npc.name.green().to_string())
-                .collect();
-            full_desc.push_str(&format!("
-● {}", npc_names.join(", ")));
-        }
-
-        if !room_items.is_empty() {
-            let item_names: Vec<String> = room_items
-                .iter()
-                .filter_map(|id| world_state.static_data.item_prototypes.get(id))
-                .map(|item| item.name.clone())
-                .collect();
-            if !item_names.is_empty() {
-                full_desc.push_str(&format!("
-{}", item_names.join(", ")));
-            }
-        }
-
-        if !room.exits.is_empty() {
-            let exit_keys: Vec<String> = room.exits.keys().cloned().collect();
-            full_desc.push_str(&format!("
-{}", format!("出口: [{}]", exit_keys.join(", ")).white()));
-        }
-
-        full_desc
-    } else {
-        "你身处一片虚无之中。".to_string()
-    }
 }
 
 async fn websocket(stream: WebSocket, state: Arc<AppState>) {
@@ -839,10 +221,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             };
 
                             if let Some(session_sender) = maybe_sender {
-                                // *** THIS IS THE CHANGED LINE ***
                                 let mut welcome_content = format!("{}
 
-{}", build_welcome_message(), get_full_room_description("genesis_altar", world, Vec::new(), Vec::new(), Vec::new()));
+{}", ui::build_welcome_message(), ui::get_full_room_description("genesis_altar", world, Vec::new(), Vec::new(), Vec::new()));
                                 
                                 if tutorial_given {
                                     welcome_content.push_str(&format!("
@@ -879,12 +260,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 }
 
 async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, sender: mpsc::Sender<Message>) {
+    use crate::ui::get_full_room_description;
+
     let mut messages_to_send = Vec::new();
 
     if matches!(command, Command::Who) {
         tracing::info!("[WHO] Player {} requested who list", player_id);
-        let who_output = generate_who_list(&state, true);
-        messages_to_send.push(ServerMessage::Description { payload: who_output });
+        messages_to_send.push(commands::handle_who(&state));
     } else {
         let mut session_lock = state.player_sessions.lock().unwrap();
         let session = match session_lock.get_mut(&player_id) {
@@ -912,304 +294,59 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                     } else {
                         match command {
                             Command::Help => {
-                                let help_text = format!("{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}
-{}",
-                                    "----【 可用指令 (Commands) 】----".bold().yellow(),
-                                    "
-  ".to_string() + &"【通用】".bold().cyan(),
-                                    "  look              - 查看当前环境。",
-                                    "  score/status      - 查看你的角色状态。",
-                                    "  inventory/i       - 查看你的背包。",
-                                    "  say <内容>        - 对房间里的所有人说话。",
-                                    "
-  ".to_string() + &"【移动】".bold().cyan(),
-                                    "  go <方向>         - 向指定方向移动 (north, south, east, west... 或 n, s, e, w...)",
-                                    "
-  ".to_string() + &"【互动】".bold().cyan(),
-                                    "  talk <目标>       - 与NPC对话。",
-                                    "  attack <目标>     - 攻击一个目标。",
-                                    "  get/take <物品>   - 从地上捡起物品。",
-                                    "
-  ".to_string() + &"【任务】".bold().cyan(),
-                                    "  quest/qs          - 查看当前任务状态。",
-                                    "  accept <任务ID>   - 从告示牌等处接受任务。",
-                                    "
-  ".to_string() + &"【其它】".bold().cyan(),
-                                    "  rest              - 原地休息以恢复体力。",
-                                    "  work              - 在特定地点劳动以赚取奖励。",
-                                    "  who               - 查看当前在线的玩家。",
-                                    ""
-                                );
-                                messages_to_send.push(ServerMessage::Info { payload: help_text });
+                                messages_to_send.push(commands::handle_help());
                             }
                             Command::Rest => {
-                                session.player.is_resting = !session.player.is_resting;
-                                if session.player.is_resting {
-                                    messages_to_send.push(ServerMessage::Info { payload: "你开始原地休息，逐渐恢复精力。".to_string() });
-                                } else {
-                                    messages_to_send.push(ServerMessage::Info { payload: "你站了起来，感觉精力充沛了一些。".to_string() });
-                                }
+                                messages_to_send.push(commands::handle_rest(&mut session.player));
                             }
                             Command::Attack { target } => {
-                                let npcs = world.get_npcs_in_room(&current_room_id_str);
-                                if let Some(npc) = npcs.iter().find(|n| n.name == target || n.prototype_id.to_string() == target) {
-                                    let is_monster = if let Some(proto) = world.static_data.npc_prototypes.get(&npc.prototype_id) {
-                                        proto.ai == "monster" || !proto.flags.contains(&"friendly".to_string())
-                                    } else {
-                                        true
-                                    };
-
-                                    if is_monster {
-                                        // Initialize player's combat state
-                                        let tick = StdSystemTime::now()
-                                            .duration_since(StdSystemTime::UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs();
-                                        
-                                        let default_skill = world.static_data.skills.get("sword_1")
-                                            .or_else(|| world.static_data.skills.values().next())
-                                            .map(|s| s.id.clone())
-                                            .unwrap_or_else(|| "basic_attack".to_string());
-                                        
-                                        session.player.combat_state = Some(combat::CombatState::new(
-                                            npc.instance_id.to_string(),
-                                            npc.name.clone(),
-                                            false,
-                                            default_skill.clone(),
-                                            tick,
-                                        ));
-                                        
-                                        // Initialize NPC's combat state (auto-counter)
-                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                        if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
-                                            npc_instance.combat_state = Some(combat::CombatState::new(
-                                                player_id.to_string(),
-                                                session.user_id.clone().unwrap_or_default(),
-                                                true,
-                                                default_skill,
-                                                tick,
-                                            ));
-                                        }
-                                        drop(dynamic_data);
-                                        
-                                        let combat_msg = format!("你屏息凝神，锁定了{}，战斗开始！", npc.name.yellow());
-                                        messages_to_send.push(ServerMessage::Description { payload: combat_msg });
-                                    } else {
-                                        messages_to_send.push(ServerMessage::Error { payload: format!("{} 看起来很友善，你下不了手。", npc.name) });
-                                    }
+                                let user_name = session.user_id.clone().unwrap_or_default();
+                                if let Some(msg) = commands::handle_attack(
+                                    &mut session.player,
+                                    &target,
+                                    &current_room_id_str,
+                                    world,
+                                    player_id,
+                                    &user_name,
+                                ) {
+                                    messages_to_send.push(msg);
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: format!("你在这没看到 {}。", target) });
                                 }
                             }
                             Command::Kill { target } => {
-                                let target_npc = {
-                                    let data = world.dynamic_data.lock().unwrap();
-                                    data.npcs.values()
-                                        .find(|n| n.current_room == current_room_id_str && (n.name == target || n.prototype_id.to_string() == target))
-                                        .cloned()
-                                };
-                                
-                                if let Some(npc) = target_npc {
-                                    let is_monster = if let Some(proto) = world.static_data.npc_prototypes.get(&npc.prototype_id) {
-                                        proto.ai == "monster" || !proto.flags.contains(&"friendly".to_string())
-                                    } else {
-                                        true
-                                    };
-                                    
-                                    if !is_monster {
-                                        messages_to_send.push(ServerMessage::Error { payload: format!("{} 看起来很友善，你下不了手。", npc.name) });
-                                    } else {
-                                        // Initialize player's combat state
-                                        let tick = StdSystemTime::now()
-                                            .duration_since(StdSystemTime::UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_secs();
-                                        
-                                        let default_skill = world.static_data.skills.get("sword_1")
-                                            .or_else(|| world.static_data.skills.values().next())
-                                            .map(|s| s.id.clone())
-                                            .unwrap_or_else(|| "basic_attack".to_string());
-                                        
-                                        // Get NPC's default skill from monster registry
-                                        let npc_default_skill = {
-                                            let proto = world.static_data.monsters.get(&npc.prototype_id.to_string());
-                                            proto.and_then(|m| m.default_skill_id.clone())
-                                                .unwrap_or_else(|| default_skill.clone())
-                                        };
-                                        
-                                        session.player.combat_state = Some(combat::CombatState::new(
-                                            npc.instance_id.to_string(),
-                                            npc.name.clone(),
-                                            false,
-                                            default_skill.clone(),
-                                            tick,
-                                        ));
-                                        
-                                        // Initialize NPC's combat state (auto-counter) with NPC's own skill
-                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                        if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
-                                            npc_instance.combat_state = Some(combat::CombatState::new(
-                                                player_id.to_string(),
-                                                session.user_id.clone().unwrap_or_default(),
-                                                true,
-                                                npc_default_skill,
-                                                tick,
-                                            ));
-                                        }
-                                        drop(dynamic_data);
-                                        
-                                        let combat_msg = format!("你屏息凝神，锁定了{}，战斗开始！", npc.name.yellow());
-                                        messages_to_send.push(ServerMessage::Description { payload: combat_msg });
-                                    }
+                                let user_name = session.user_id.clone().unwrap_or_default();
+                                if let Some(msg) = commands::handle_kill(
+                                    &mut session.player,
+                                    &target,
+                                    &current_room_id_str,
+                                    world,
+                                    player_id,
+                                    &user_name,
+                                ) {
+                                    messages_to_send.push(msg);
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: format!("你在这没看到 {}。", target) });
                                 }
                             }
                             Command::Cast { skill, target } => {
-                                let skill_template = world.static_data.skills.get(&skill).cloned();
-                                if let Some(skill_tpl) = skill_template {
-                                    if session.player.qi < skill_tpl.cost_qi as u32 {
-                                        messages_to_send.push(ServerMessage::Error { payload: format!("你的真元不足，需要 {} 点真元。", skill_tpl.cost_qi) });
-                                    } else {
-                                        let attacker_stats = {
-                                            let p = &session.player;
-                                            combat::CombatStats {
-                                                hp: p.hp as i32,
-                                                max_hp: p.hp_max as i32,
-                                                attack: p.atk as i32,
-                                                defense: 5,
-                                                level: p.realm_level as i32,
-                                                name: p.name.clone(),
-                                                is_player: true,
-                                                str: p.stats.str as i32,
-                                                dex: p.stats.dex as i32,
-                                                int: p.stats.int as i32,
-                                            }
-                                        };
-                                        
-                                        if skill_tpl.is_magic && (skill_tpl.base_damage as i32) < 0 {
-                                            let result = combat::resolve_heal(&skill_tpl, &attacker_stats);
-                                            if let combat::CombatResult::Heal { amount, log } = result {
-                                                session.player.qi -= skill_tpl.cost_qi as u32;
-                                                session.player.hp = (session.player.hp + amount as u32).min(session.player.hp_max);
-                                                messages_to_send.push(ServerMessage::Description { payload: log });
-                                            }
-                                        } else {
-                                            let target_npc = if let Some(t) = target {
-                                                let data = world.dynamic_data.lock().unwrap();
-                                                data.npcs.values()
-                                                    .find(|n| n.current_room == current_room_id_str && (n.name == t || n.prototype_id.to_string() == t))
-                                                    .cloned()
-                                            } else {
-                                                None
-                                            };
-                                            
-                                            if let Some(npc) = target_npc {
-                                                let defender_stats = combat::CombatStats {
-                                                    hp: npc.hp,
-                                                    max_hp: npc.max_hp,
-                                                    attack: npc.attack,
-                                                    defense: npc.defense,
-                                                    level: npc.level,
-                                                    name: npc.name.clone(),
-                                                    is_player: false,
-                                                    str: 10,
-                                                    dex: 10,
-                                                    int: 10,
-                                                };
-                                                
-                                                let result = combat::resolve_attack(&attacker_stats, &defender_stats, Some(&skill_tpl));
-                                                
-                                                session.player.qi -= skill_tpl.cost_qi as u32;
-                                                
-                                                match result {
-                                                    combat::CombatResult::Hit { damage, is_crit: _, log } => {
-                                                        messages_to_send.push(ServerMessage::Description { payload: log });
-                                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                                        if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
-                                                            npc_instance.hp -= damage;
-                                                            if npc_instance.hp <= 0 {
-                                                                dynamic_data.npcs.remove(&npc.instance_id);
-                                                                messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
-                                                            }
-                                                        }
-                                                    }
-                                                    combat::CombatResult::TargetKilled { damage: _, is_crit: _, log } => {
-                                                        messages_to_send.push(ServerMessage::Description { payload: log });
-                                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                                        dynamic_data.npcs.remove(&npc.instance_id);
-                                                        messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
-                                                    }
-                                                    combat::CombatResult::Miss { log } => {
-                                                        messages_to_send.push(ServerMessage::Description { payload: log });
-                                                    }
-                                                    _ => {}
-                                                }
-                                            } else {
-                                                messages_to_send.push(ServerMessage::Error { payload: "你的目标不存在。".to_string() });
-                                            }
-                                        }
-                                    }
+                                if let Some(msg) = commands::handle_cast(
+                                    &mut session.player,
+                                    &skill,
+                                    target.as_deref(),
+                                    &current_room_id_str,
+                                    world,
+                                ) {
+                                    messages_to_send.push(msg);
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: format!("没有找到技能: {}", skill) });
                                 }
                             }
                             Command::Work => {
-                                if current_room_id_str != "bamboo_forest" && current_room_id_str != "spirit_spring" {
-                                    messages_to_send.push(ServerMessage::Error { payload: "这里似乎没有什么值得你劳作的地方，换个环境试试？".to_string() });
-                                } else if !session.player.consume_stamina(15) {
-                                    messages_to_send.push(ServerMessage::Error { payload: "你已经筋疲力尽了，稍微休息（rest）一下吧。".to_string() });
-                                } else {
-                                    session.player.wallet.shell += 20;
-                                    session.player.exp += 5;
-                                    session.player.potential += 2;
-
-                                    let pool = [
-                                        "“你抡起斧头劈向枯木，震得虎口生疼，但隐约间你捕捉到了风的律动。”",
-                                        "“汗水顺着脸颊流下，你进入了一种奇妙的节奏，呼吸逐渐与竹林的沙沙声同步。”",
-                                        "“每一次挥砍都带起片片竹叶，你感到体内有一丝微弱的气流正随着动作缓缓升起。”"
-                                    ];
-                                    let mut rng = rand::thread_rng();
-                                    let msg = pool.choose(&mut rng).unwrap().to_string();
-                                    messages_to_send.push(ServerMessage::Description { payload: msg });
-                                    messages_to_send.push(ServerMessage::Info { payload: format!("{}", "获得奖励：灵贝+20，修为+5，潜能+2".green().bold()) });
-
-                                    let mut q102_finished = false;
-                                    for status in &mut session.player.active_quests {
-                                        if status.quest_id == "q102" && status.current_step == 2 {
-                                            let count = session.player.quest_counts.entry("q102_work".to_string()).or_insert(0);
-                                            *count += 1;
-                                            if *count >= 5 {
-                                                status.current_step += 1;
-                                                q102_finished = true;
-                                            }
-                                        }
-                                    }
-                                    if q102_finished {
-                                        messages_to_send.push(ServerMessage::Description { payload: format!("{}", "【机缘】随着最后一斧劈下，你感到一股清凉的气流顺着指尖流向全身。你对天地的感悟达到了新的高度！请回广场向村长报告。".magenta().bold()) });
-                                    }
-                                }
+                                let msgs = commands::handle_work(&mut session.player, &current_room_id_str);
+                                messages_to_send.extend(msgs);
                             }
                             Command::Go { direction } => {
-                                // Check if in combat
                                 if let Some(cs) = &session.player.combat_state {
                                     messages_to_send.push(ServerMessage::Error { 
                                         payload: format!("你正在和{}战斗，不能移动！", cs.target_name) 
@@ -1331,7 +468,6 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                                 true
                                             });
 
-                                            // Check for next quest: q102 after tutorial_1 if talking to chief (1002)
                                             if finished_quest_id == "tutorial_1" && npc.prototype_id == 1002 {
                                                 if world.static_data.quests.contains_key("q102") && !session.player.completed_quests.contains("q102") {
                                                     session.player.active_quests.push(PlayerQuestStatus {
@@ -1349,7 +485,6 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
 {}", format!("[任务更新] {}", quest_name).green().bold()));
                                         }
                                     } else {
-                                        // NPC doesn't have an active quest step for player, check if they can start a new quest
                                         if npc.prototype_id == 1002 && session.player.completed_quests.contains("tutorial_1") && 
                                            !session.player.completed_quests.contains("q102") && 
                                            !session.player.active_quests.iter().any(|q| q.quest_id == "q102") {
@@ -1371,134 +506,32 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 }
                             }
                             Command::Accept { quest_id } => {
-                                let npcs = world.get_npcs_in_room(&current_room_id_str);
-                                let has_board = npcs.iter().any(|n| n.prototype_id == 2000);
-                                
-                                if has_board {
-                                    if let Some(quest) = world.static_data.quests.get(&quest_id) {
-                                        if session.player.completed_quests.contains(&quest_id) {
-                                            messages_to_send.push(ServerMessage::Error { payload: "你已经完成了这个任务，不能重复接取。".to_string() });
-                                        } else if session.player.active_quests.iter().any(|q| q.quest_id == quest_id) {
-                                            messages_to_send.push(ServerMessage::Error { payload: "你已经接取过这个任务了。".to_string() });
-                                        } else if session.player.accept_quest(quest) {
-                                            messages_to_send.push(ServerMessage::Info { payload: format!("{}", format!("[任务接取] 你接取了任务：{}。输入 'qs' 可查看详细进度。", quest.name).yellow().bold()) });
-                                        } else {
-                                            messages_to_send.push(ServerMessage::Error { payload: "接取任务失败。".to_string() });
-                                        }
-                                    } else {
-                                        messages_to_send.push(ServerMessage::Error { payload: "没有找到这个任务。".to_string() });
-                                    }
+                                if let Some(msg) = commands::handle_accept(&mut session.player, &quest_id, &current_room_id_str, world) {
+                                    messages_to_send.push(msg);
                                 } else {
-                                    messages_to_send.push(ServerMessage::Error { payload: "这里没有告示牌，去野外入口找找看吧。".to_string() });
+                                    messages_to_send.push(ServerMessage::Error { payload: "没有找到这个任务。".to_string() });
                                 }
                             }
                             Command::Get { item } => {
-                                let room_items = world.get_items_in_room(&current_room_id_str);
-                                let mut found_item_id = None;
-                                for id in room_items {
-                                    if let Some(proto) = world.static_data.item_prototypes.get(&id) {
-                                        if proto.name == item || id.to_string() == item {
-                                            found_item_id = Some(id);
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if let Some(item_id) = found_item_id {
-                                    if world.remove_item_from_room(&current_room_id_str, item_id) {
-                                        session.player.inventory.push(item_id);
-                                        let item_name = world.static_data.item_prototypes.get(&item_id)
-                                            .map(|p| p.name.clone())
-                                            .unwrap_or_else(|| "未知物品".to_string());
-                                        messages_to_send.push(ServerMessage::Info { payload: format!("你捡起了{}。", item_name) });
-                                    } else {
-                                        messages_to_send.push(ServerMessage::Error { payload: "捡起物品失败。".to_string() });
-                                    }
+                                if let Some(msg) = commands::handle_get(&mut session.player, &item, &current_room_id_str, world) {
+                                    messages_to_send.push(msg);
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: format!("这里没有 {}。", item) });
                                 }
                             }
                             Command::Inventory => {
-                                if session.player.inventory.is_empty() {
-                                    messages_to_send.push(ServerMessage::Info { payload: "你两手空空。".to_string() });
-                                } else {
-                                    let mut inv_text = format!("{}
-", "你身上带着：".yellow().bold());
-                                    for item_id in &session.player.inventory {
-                                        let item_name = world.static_data.item_prototypes.get(item_id)
-                                            .map(|p| p.name.clone())
-                                            .unwrap_or_else(|| "未知物品".to_string());
-                                        inv_text.push_str(&format!("- {}\n", item_name));
-                                    }
-                                    messages_to_send.push(ServerMessage::Description { payload: inv_text });
-                                }
+                                messages_to_send.push(commands::handle_inventory(&session.player, world));
                             }
                             Command::Quest => {
-                                if session.player.active_quests.is_empty() {
-                                    messages_to_send.push(ServerMessage::Info { payload: "当前没有任何进行中的任务。".to_string() });
-                                } else {
-                                    let mut output = format!("{}
-", "进行中的任务：".yellow().bold());
-                                    for status in &session.player.active_quests {
-                                        if let Some(quest) = world.static_data.quests.get(&status.quest_id) {
-                                            let step_desc = if quest.quest_type == "kill" {
-                                                let count = status.kill_counts.get(&quest.target_id).unwrap_or(&0);
-                                                format!("{}: {}/{}", quest.description, count, quest.target_count.unwrap_or(0))
-                                            } else {
-                                                quest.steps.get(status.current_step as usize)
-                                                    .map(|s| s.description.as_str())
-                                                    .unwrap_or("已完成所有步骤。")
-                                                    .to_string()
-                                            };
-                                            output.push_str(&format!("- {}: {}\n", quest.name, step_desc));
-                                        }
-                                    }
-                                    messages_to_send.push(ServerMessage::Description { payload: output });
-                                }
+                                messages_to_send.push(commands::handle_quest(&session.player, world));
                             }
                             Command::Look => {
                                 tracing::info!("[LOOK] Player {} looking at room {}", player_id, current_room_id_str);
-                                let (other_players, npc_data, room_items_data) = {
-                                    let data = world.dynamic_data.lock().unwrap();
-                                    let players: Vec<String> = data.players.iter()
-                                        .filter(|(id, loc)| **id != player_id && loc.room_id == current_room_id_str)
-                                        .filter_map(|(_, loc)| loc.user_name.clone())
-                                        .collect();
-                                    let npcs: Vec<Npc> = data.npcs.values()
-                                        .filter(|npc| npc.current_room == current_room_id_str)
-                                        .cloned()
-                                        .collect();
-                                    let items: Vec<u32> = data.room_items.get(&current_room_id_str).cloned().unwrap_or_default();
-                                    (players, npcs, items)
-                                };
-                                let desc = get_full_room_description(&current_room_id_str, world, other_players, npc_data.clone(), room_items_data);
-                                messages_to_send.push(ServerMessage::Description { payload: desc });
-                                
-                                if npc_data.iter().any(|n| n.prototype_id == 2000) {
-                                    let mut available = Vec::new();
-                                    for quest in world.static_data.quests.values() {
-                                        if quest.quest_type == "kill" && 
-                                           !session.player.completed_quests.contains(&quest.id) &&
-                                           !session.player.active_quests.iter().any(|q| q.quest_id == quest.id) {
-                                            available.push(format!("- [{}] {}", quest.id, quest.name));
-                                        }
-                                    }
-                                    if !available.is_empty() {
-                                        let mut board_msg = format!("{}
- ", "
- 告示牌上贴着以下悬赏：".yellow().bold());
-                                        board_msg.push_str(&available.join("
-"));
-                                        board_msg.push_str(&format!("
-{}", "
- 输入 'accept <任务ID>' 即可接取.".white().bold()));
-                                        messages_to_send.push(ServerMessage::Info { payload: board_msg });
-                                    }
-                                }
+                                let msg = commands::handle_look(player_id, &current_room_id_str, world, &session.player);
+                                messages_to_send.push(msg);
                             }
                             Command::Score => {
-                                let score_str = session.player.get_score_string(&world.static_data.config);
-                                messages_to_send.push(ServerMessage::Description { payload: score_str });
+                                messages_to_send.push(commands::handle_score(&session.player, &world.static_data.config));
                             }
                             Command::Unknown(ref cmd) if cmd == "heartbeat" => return,
                             Command::Unknown(cmd) => messages_to_send.push(ServerMessage::Error { payload: format!("Unknown command: {}", cmd) }),
@@ -1521,4 +554,8 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
             let _ = sender.send(Message::Text(json_str)).await;
         }
     }
+}
+
+fn generate_who_list(state: &Arc<AppState>, use_color: bool) -> String {
+    crate::ui::generate_who_list(state, use_color)
 }
