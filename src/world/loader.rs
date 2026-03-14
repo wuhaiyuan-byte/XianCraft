@@ -1,4 +1,7 @@
-use crate::world_model::{ItemZoneData, MultiZoneData, NpcPrototype, NpcZoneData, Room, WorldConfig, ZoneData, Quest, QuestRegistry, SkillRegistry, MonsterRegistry};
+use crate::world_model::{
+    ItemZoneData, MonsterRegistry, MultiZoneData, NpcPrototype, NpcZoneData, Quest, QuestRegistry,
+    Room, SkillRegistry, WorldConfig, ZoneData,
+};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
@@ -31,7 +34,7 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
         for entry in fs::read_dir(maps_dir)? {
             let entry = entry?;
             let zone_str = fs::read_to_string(entry.path())?;
-            
+
             // Try parsing as single ZoneData first, then MultiZoneData
             if let Ok(zone) = serde_json::from_str::<ZoneData>(&zone_str) {
                 for room in zone.rooms {
@@ -44,7 +47,10 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
                     }
                 }
             } else {
-                return Err(anyhow::anyhow!("Failed to parse zone data from {:?}", entry.path()));
+                return Err(anyhow::anyhow!(
+                    "Failed to parse zone data from {:?}",
+                    entry.path()
+                ));
             }
         }
     }
@@ -62,11 +68,13 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
 
         // A simple convention: load any file that ends with 'npcs.json' or 'monster_registry.json'
         if file_name.ends_with("npcs.json") || file_name == "monster_registry.json" {
-            let npc_str = fs::read_to_string(entry.path())
-                .with_context(|| format!("Failed to read NPC/Monster file at {:?}", entry.path()))?;
+            let npc_str = fs::read_to_string(entry.path()).with_context(|| {
+                format!("Failed to read NPC/Monster file at {:?}", entry.path())
+            })?;
 
-            let npc_zone_data: NpcZoneData = serde_json::from_str(&npc_str)
-                .with_context(|| format!("Failed to parse NPC/Monster data from {:?}", entry.path()))?;
+            let npc_zone_data: NpcZoneData = serde_json::from_str(&npc_str).with_context(|| {
+                format!("Failed to parse NPC/Monster data from {:?}", entry.path())
+            })?;
 
             for (id, proto) in npc_zone_data.entities {
                 npc_prototypes.insert(id, proto);
@@ -75,8 +83,10 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
             let item_str = fs::read_to_string(entry.path())
                 .with_context(|| format!("Failed to read Item file at {:?}", entry.path()))?;
 
-            let item_zone_data: ItemZoneData = serde_json::from_str(&item_str)
-                .with_context(|| format!("Failed to parse Item zone data from {:?}", entry.path()))?;
+            let item_zone_data: ItemZoneData =
+                serde_json::from_str(&item_str).with_context(|| {
+                    format!("Failed to parse Item zone data from {:?}", entry.path())
+                })?;
 
             for (id, proto) in item_zone_data.items {
                 item_prototypes.insert(id, proto);
@@ -85,25 +95,31 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
             let quest_str = fs::read_to_string(entry.path())
                 .with_context(|| format!("Failed to read Quest file at {:?}", entry.path()))?;
 
-            let quest_registry: QuestRegistry = serde_json::from_str(&quest_str)
-                .with_context(|| format!("Failed to parse Quest registry from {:?}", entry.path()))?;
-            
+            let quest_registry: QuestRegistry =
+                serde_json::from_str(&quest_str).with_context(|| {
+                    format!("Failed to parse Quest registry from {:?}", entry.path())
+                })?;
+
             quests = quest_registry.quests;
         } else if file_name == "skills.json" {
             let skill_str = fs::read_to_string(entry.path())
                 .with_context(|| format!("Failed to read Skills file at {:?}", entry.path()))?;
 
-            let skill_registry: SkillRegistry = serde_json::from_str(&skill_str)
-                .with_context(|| format!("Failed to parse Skill registry from {:?}", entry.path()))?;
-            
+            let skill_registry: SkillRegistry =
+                serde_json::from_str(&skill_str).with_context(|| {
+                    format!("Failed to parse Skill registry from {:?}", entry.path())
+                })?;
+
             skills = skill_registry.skills;
         } else if file_name == "monsters.json" {
             let monster_str = fs::read_to_string(entry.path())
                 .with_context(|| format!("Failed to read Monsters file at {:?}", entry.path()))?;
 
             let monster_registry: MonsterRegistry = serde_json::from_str(&monster_str)
-                .with_context(|| format!("Failed to parse Monster registry from {:?}", entry.path()))?;
-            
+                .with_context(|| {
+                    format!("Failed to parse Monster registry from {:?}", entry.path())
+                })?;
+
             monsters = monster_registry.monsters;
         }
     }
@@ -127,4 +143,62 @@ pub fn load_all_data(base_path: &str) -> Result<StaticWorldData> {
         skills,
         monsters,
     })
+}
+
+#[cfg(test)]
+mod loader_tests {
+    use super::*;
+
+    #[test]
+    fn test_world_config_with_player_prefix() {
+        let json = r#"{
+            "welcome_message": "test",
+            "player_display_prefix": "修士",
+            "realms": []
+        }"#;
+
+        let config: WorldConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.player_display_prefix, "修士");
+    }
+
+    #[test]
+    fn test_npc_with_display_prefix() {
+        let json = r#"{
+            "zone": "test",
+            "entities": {
+                "1": {
+                    "name": "测试NPC",
+                    "title": "测试",
+                    "description": "desc",
+                    "level": 1,
+                    "ai": "friendly",
+                    "display_prefix": "仙子"
+                }
+            }
+        }"#;
+
+        let data: NpcZoneData = serde_json::from_str(json).unwrap();
+        let npc = data.entities.get(&1).unwrap();
+        assert_eq!(npc.display_prefix, "仙子");
+    }
+
+    #[test]
+    fn test_npc_default_display_prefix() {
+        let json = r#"{
+            "zone": "test",
+            "entities": {
+                "1": {
+                    "name": "测试NPC",
+                    "title": "测试",
+                    "description": "desc",
+                    "level": 1,
+                    "ai": "friendly"
+                }
+            }
+        }"#;
+
+        let data: NpcZoneData = serde_json::from_str(json).unwrap();
+        let npc = data.entities.get(&1).unwrap();
+        assert_eq!(npc.display_prefix, "");
+    }
 }

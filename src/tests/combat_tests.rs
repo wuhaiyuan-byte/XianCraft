@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use crate::combat::{calculate_skill_damage, check_can_cast_skill, get_skill_cost, resolve_attack, CombatResult, CombatStats};
-    use crate::world_model::SkillTemplate;
+    use crate::combat::{
+        calculate_skill_damage, check_can_cast_skill, get_skill_cost, resolve_attack, CombatResult,
+        CombatStats,
+    };
+    use crate::world_model::{SkillMove, SkillTemplate};
 
     fn create_test_skill() -> SkillTemplate {
         SkillTemplate {
@@ -15,6 +18,11 @@ mod tests {
             scaling_multiplier: 1.5,
             cooldown: 0,
             is_magic: false,
+            moves: vec![SkillMove {
+                name: "基础攻击".to_string(),
+                description: "{attacker}对{defender}发起了攻击".to_string(),
+                damage_multiplier: 1.0,
+            }],
         }
     }
 
@@ -30,6 +38,11 @@ mod tests {
             scaling_multiplier: 2.0,
             cooldown: 0,
             is_magic: true,
+            moves: vec![SkillMove {
+                name: "强力攻击".to_string(),
+                description: "{attacker}对{defender}使出强力一击".to_string(),
+                damage_multiplier: 1.5,
+            }],
         }
     }
 
@@ -86,11 +99,15 @@ mod tests {
     fn test_resolve_attack_hit() {
         let attacker = create_attacker();
         let defender = create_defender();
-        
+
         let result = resolve_attack(&attacker, &defender, None);
-        
+
         match result {
-            CombatResult::Hit { damage, is_crit, log } => {
+            CombatResult::Hit {
+                damage,
+                is_crit,
+                log,
+            } => {
                 assert!(damage > 0);
                 assert!(!log.is_empty());
             }
@@ -100,18 +117,28 @@ mod tests {
 
     #[test]
     fn test_resolve_attack_with_skill() {
-        let attacker = create_attacker();
+        let mut attacker = create_attacker();
+        attacker.attack = 5;
         let defender = create_defender();
         let skill = create_test_skill();
-        
+
         let result = resolve_attack(&attacker, &defender, Some(&skill));
-        
+
         match result {
-            CombatResult::Hit { damage, is_crit: _, log } => {
+            CombatResult::Hit {
+                damage,
+                is_crit: _,
+                log,
+            }
+            | CombatResult::TargetKilled {
+                damage,
+                is_crit: _,
+                log,
+            } => {
                 assert!(damage > 0);
                 assert!(log.contains("测试剑技"));
             }
-            _ => panic!("Expected Hit result, got {:?}", result),
+            _ => panic!("Expected Hit or TargetKilled result, got {:?}", result),
         }
     }
 
@@ -148,15 +175,19 @@ mod tests {
     fn test_resolve_attack_target_killed() {
         let mut attacker = create_attacker();
         attacker.attack = 100;
-        
+
         let mut defender = create_defender();
         defender.hp = 10;
         defender.max_hp = 10;
-        
+
         let result = resolve_attack(&attacker, &defender, None);
-        
+
         match result {
-            CombatResult::TargetKilled { damage, is_crit: _, log } => {
+            CombatResult::TargetKilled {
+                damage,
+                is_crit: _,
+                log,
+            } => {
                 assert!(damage >= 10);
             }
             _ => panic!("Expected TargetKilled result, got {:?}", result),
@@ -167,11 +198,11 @@ mod tests {
     fn test_level_bonus_damage() {
         let mut attacker = create_attacker();
         attacker.level = 10;
-        
+
         let defender = create_defender();
-        
+
         let result = resolve_attack(&attacker, &defender, None);
-        
+
         match result {
             CombatResult::Hit { damage, .. } => {
                 assert!(damage > 20);

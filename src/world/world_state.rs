@@ -52,15 +52,21 @@ impl WorldState {
                         room.id.clone(),
                     );
                     
-                    // Try to load combat stats from monsters.json using prototype name as key
+                    // Try to load combat stats from monsters.json using monster name
                     let monster_key = npc.name.clone();
-                    if let Some(monster_template) = static_data.monsters.get(&monster_key) {
-                        npc.init_combat_stats(
-                            monster_template.max_hp as i32,
-                            monster_template.attack as i32,
-                            monster_template.defense as i32,
-                        );
-                    } else {
+                    let mut found = false;
+                    for monster in static_data.monsters.values() {
+                        if monster.name == monster_key {
+                            npc.init_combat_stats(
+                                monster.max_hp as i32,
+                                monster.attack as i32,
+                                monster.defense as i32,
+                            );
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
                         // Default combat stats if no monster template found
                         npc.init_combat_stats(50, 10, 2);
                     }

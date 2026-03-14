@@ -9,6 +9,7 @@
       "atk": 5,
       "exp_reward": 10,
       "ai": "monster",
+      "display_prefix": "妖兽",
       "drop_table": [
         {
           "item": "butterfly_wing",
@@ -24,6 +25,7 @@
       "atk": 8,
       "exp_reward": 20,
       "ai": "monster",
+      "display_prefix": "妖兽",
       "drop_table": [
         {
           "item": "snake_gall",
@@ -39,6 +41,7 @@
       "atk": 12,
       "exp_reward": 40,
       "ai": "monster",
+      "display_prefix": "妖兽",
       "drop_table": [
         {
           "item": "boar_meat",
@@ -54,6 +57,7 @@
       "atk": 15,
       "exp_reward": 45,
       "ai": "monster",
+      "display_prefix": "妖兽",
       "drop_table": [
         {
           "item": "spider_silk",
@@ -69,6 +73,7 @@
       "atk": 20,
       "exp_reward": 60,
       "ai": "monster",
+      "display_prefix": "妖兽",
       "drop_table": [
         {
           "item": "fox_pelt",
@@ -84,6 +89,7 @@
       "atk": 25,
       "exp_reward": 85,
       "ai": "monster",
+      "display_prefix": "妖植",
       "drop_table": [
         {
           "item": "flower_seed",
@@ -99,6 +105,7 @@
       "atk": 30,
       "exp_reward": 110,
       "ai": "monster",
+      "display_prefix": "亡灵",
       "drop_table": [
         {
           "item": "bone_fragment",
@@ -114,6 +121,7 @@
       "atk": 35,
       "exp_reward": 150,
       "ai": "monster",
+      "display_prefix": "鬼魂",
       "drop_table": [
         {
           "item": "ghost_essence",
@@ -129,6 +137,7 @@
       "atk": 40,
       "exp_reward": 200,
       "ai": "monster",
+      "display_prefix": "僵尸",
       "drop_table": [
         {
           "item": "rotten_flesh",
@@ -144,6 +153,7 @@
       "atk": 38,
       "exp_reward": 160,
       "ai": "monster",
+      "display_prefix": "灵兽",
       "drop_table": [
         {
           "item": "fruit",
@@ -159,6 +169,7 @@
       "atk": 45,
       "exp_reward": 220,
       "ai": "monster",
+      "display_prefix": "灵兽",
       "drop_table": [
         {
           "item": "eagle_feather",
@@ -174,6 +185,7 @@
       "atk": 50,
       "exp_reward": 300,
       "ai": "monster",
+      "display_prefix": "石灵",
       "drop_table": [
         {
           "item": "stone_heart",
@@ -189,6 +201,7 @@
       "atk": 55,
       "exp_reward": 320,
       "ai": "monster",
+      "display_prefix": "匪徒",
       "drop_table": [
         {
           "item": "gold_coin",
@@ -204,6 +217,7 @@
       "atk": 60,
       "exp_reward": 400,
       "ai": "monster",
+      "display_prefix": "毒物",
       "drop_table": [
         {
           "item": "scorpion_tail",
@@ -219,6 +233,7 @@
       "atk": 70,
       "exp_reward": 500,
       "ai": "monster",
+      "display_prefix": "灵兽",
       "drop_table": [
         {
           "item": "wolf_tooth",

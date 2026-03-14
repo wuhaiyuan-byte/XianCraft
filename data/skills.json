@@ -10,19 +10,24 @@
       "scaling_attr": "str",
       "scaling_multiplier": 1.5,
       "cooldown": 0,
-      "is_magic": false
-    },
-    "sword_2": {
-      "id": "sword_2",
-      "name": "落叶剑诀",
-      "description": "剑如落叶飘零，伤人于无形",
-      "cost_qi": 20,
-      "cost_hp": 0,
-      "base_damage": 50,
-      "scaling_attr": "dex",
-      "scaling_multiplier": 2.0,
-      "cooldown": 1,
-      "is_magic": false
+      "is_magic": false,
+      "moves": [
+        {
+          "name": "起手式",
+          "description": "{attacker}手腕微转，一招【起手式】化作数道淡青色剑影笼罩{defender}！",
+          "damage_multiplier": 1.0
+        },
+        {
+          "name": "连绵不绝",
+          "description": "{attacker}剑势骤然转厉，【连绵不绝】般的剑气直逼{defender}命门！",
+          "damage_multiplier": 1.5
+        },
+        {
+          "name": "收剑式",
+          "description": "{attacker}最后以【收剑式】收尾，一道剑光闪过，{defender}已是避无可避！",
+          "damage_multiplier": 2.0
+        }
+      ]
     },
     "thunder_1": {
       "id": "thunder_1",
@@ -34,19 +39,24 @@
       "scaling_attr": "int",
       "scaling_multiplier": 1.8,
       "cooldown": 0,
-      "is_magic": true
-    },
-    "thunder_2": {
-      "id": "thunder_2",
-      "name": "天雷罚",
-      "description": "引动天雷降下惩罚，威力巨大",
-      "cost_qi": 40,
-      "cost_hp": 0,
-      "base_damage": 80,
-      "scaling_attr": "int",
-      "scaling_multiplier": 2.5,
-      "cooldown": 2,
-      "is_magic": true
+      "is_magic": true,
+      "moves": [
+        {
+          "name": "引雷",
+          "description": "{attacker}单手结印，天空中一道【引雷】劈下，直击{defender}天灵！",
+          "damage_multiplier": 1.2
+        },
+        {
+          "name": "雷鸣",
+          "description": "{attacker}催动真元，【雷鸣】声大作，{defender}顿感气血翻涌！",
+          "damage_multiplier": 1.8
+        },
+        {
+          "name": "天罚",
+          "description": "{attacker}运转周身灵气，【天罚】降临，璀璨雷光将{defender}吞噬！",
+          "damage_multiplier": 2.5
+        }
+      ]
     },
     "heal_1": {
       "id": "heal_1",
@@ -58,7 +68,19 @@
       "scaling_attr": "int",
       "scaling_multiplier": 1.0,
       "cooldown": 3,
-      "is_magic": true
+      "is_magic": true,
+      "moves": [
+        {
+          "name": "灵气汇聚",
+          "description": "{attacker}闭目凝神，周身灵气【汇聚】，淡蓝色光芒笼罩全身",
+          "damage_multiplier": 0.5
+        },
+        {
+          "name": "疗伤",
+          "description": "一道温和的灵气流过经脉，{attacker}感到伤势好转了许多",
+          "damage_multiplier": 1.0
+        }
+      ]
     }
   }
 }

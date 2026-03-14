@@ -6,6 +6,7 @@ use std::collections::HashMap;
 pub struct WorldConfig {
     pub welcome_message: String,
     pub realms: Vec<Realm>,
+    pub player_display_prefix: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -60,6 +61,8 @@ pub struct NpcPrototype {
     pub dialog_id: Option<String>,
     #[serde(default)]
     pub scripts: HashMap<String, String>,
+    #[serde(default)]
+    pub display_prefix: String,
 }
 
 // Represents the top-level structure of an Item data file (e.g., items.json)
@@ -138,6 +141,13 @@ pub struct QuestRegistry {
 // ========== Combat & Skills Static Data ==========
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SkillMove {
+    pub name: String,
+    pub description: String,
+    pub damage_multiplier: f32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SkillTemplate {
     pub id: String,
     pub name: String,
@@ -149,6 +159,14 @@ pub struct SkillTemplate {
     pub scaling_multiplier: f32,
     pub cooldown: u32,
     pub is_magic: bool,
+    pub moves: Vec<SkillMove>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct HealthStateTemplate {
+    pub name: String,
+    pub hp_threshold: f32,
+    pub description: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -163,6 +181,8 @@ pub struct MonsterTemplate {
     pub exp_reward: u64,
     pub shell_reward: u32,
     pub is_aggro: bool,
+    pub default_skill_id: Option<String>,
+    pub health_states: Vec<HealthStateTemplate>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

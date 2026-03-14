@@ -405,6 +405,7 @@ pub async fn run(world_state: WorldState) {
 async fn game_loop(app_state: Arc<AppState>) {
     let mut tick_counter: u64 = 0;
     const RECOVERY_TICK_INTERVAL: u64 = 10;
+    const COMBAT_TICK_INTERVAL: u64 = 3;
 
     loop {
         sleep(Duration::from_secs(1)).await;
@@ -433,6 +434,179 @@ async fn game_loop(app_state: Arc<AppState>) {
                         let _ = session.sender.try_send(Message::Text(json));
                     }
                     session.player.last_input_time = now;
+                }
+            }
+        }
+
+        if tick_counter % COMBAT_TICK_INTERVAL == 0 {
+            process_combat_ticks(&app_state).await;
+        }
+    }
+}
+
+async fn process_combat_ticks(app_state: &Arc<AppState>) {
+    let players_in_combat: Vec<(u64, combat::CombatState)> = {
+        let sessions = app_state.player_sessions.lock().unwrap();
+        sessions.iter()
+            .filter(|(_, s)| s.user_id.is_some() && s.player.combat_state.is_some())
+            .map(|(id, s)| (*id, s.player.combat_state.clone().unwrap()))
+            .collect()
+    };
+
+    for (player_id, combat_state) in players_in_combat {
+        let target_id = combat_state.target_id.clone();
+        let target_is_player = combat_state.target_is_player;
+
+        let attacker_data = {
+            let sessions = app_state.player_sessions.lock().unwrap();
+            sessions.get(&player_id).map(|s| {
+                let p = &s.player;
+                combat::CombatStats {
+                    hp: p.hp as i32,
+                    max_hp: p.hp_max as i32,
+                    attack: p.atk as i32,
+                    defense: 5,
+                    level: p.realm_level as i32,
+                    name: p.name.clone(),
+                    is_player: true,
+                    str: p.stats.str as i32,
+                    dex: p.stats.dex as i32,
+                    int: p.stats.int as i32,
+                }
+            })
+        };
+
+        if let Some(attacker_stats) = attacker_data {
+            let defender_stats = if target_is_player {
+                let sessions = app_state.player_sessions.lock().unwrap();
+                sessions.get(&target_id.parse().unwrap_or(0)).map(|s| {
+                    let p = &s.player;
+                    combat::CombatStats {
+                        hp: p.hp as i32,
+                        max_hp: p.hp_max as i32,
+                        attack: p.atk as i32,
+                        defense: 5,
+                        level: p.realm_level as i32,
+                        name: p.name.clone(),
+                        is_player: true,
+                        str: p.stats.str as i32,
+                        dex: p.stats.dex as i32,
+                        int: p.stats.int as i32,
+                    }
+                })
+            } else {
+                let data = app_state.world_state.dynamic_data.lock().unwrap();
+                data.npcs.values().find(|n| n.instance_id.to_string() == target_id).map(|n| {
+                    combat::CombatStats {
+                        hp: n.hp as i32,
+                        max_hp: n.max_hp as i32,
+                        attack: n.attack as i32,
+                        defense: n.defense as i32,
+                        level: n.level as i32,
+                        name: n.name.clone(),
+                        is_player: false,
+                        str: 10,
+                        dex: 10,
+                        int: 10,
+                    }
+                })
+            };
+
+            if let Some(defender_stats) = defender_stats {
+                let result = combat::resolve_attack(&attacker_stats, &defender_stats, None);
+                
+                match result {
+                    combat::CombatResult::Hit { damage, log, is_crit: _ } => {
+                        let mut sessions = app_state.player_sessions.lock().unwrap();
+                        if let Some(session) = sessions.get_mut(&player_id) {
+                            let msg = ServerMessage::Description { payload: log };
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                let _ = session.sender.try_send(Message::Text(json));
+                            }
+                        }
+
+                        if target_is_player {
+                            let mut sessions = app_state.player_sessions.lock().unwrap();
+                            if let Some(target) = sessions.get_mut(&target_id.parse().unwrap_or(0)) {
+                                target.player.hp = (target.player.hp as i32 - damage).max(0) as u32;
+                                if target.player.hp == 0 {
+                                    target.player.combat_state = None;
+                                    if let Some(session) = sessions.get_mut(&player_id) {
+                                        session.player.combat_state = None;
+                                        let msg = ServerMessage::Description { payload: format!("你击败了{}！", defender_stats.name.yellow()) };
+                                        if let Ok(json) = serde_json::to_string(&msg) {
+                                            let _ = session.sender.try_send(Message::Text(json));
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            let mut data = app_state.world_state.dynamic_data.lock().unwrap();
+                            if let Some(npc) = data.npcs.values_mut().find(|n| n.instance_id.to_string() == target_id) {
+                                npc.hp = (npc.hp as i32 - damage).max(0);
+                                if npc.hp == 0 {
+                                    let npc_name = npc.name.clone();
+                                    let npc_proto_id = npc.prototype_id;
+                                    data.npcs.retain(|_, n| n.instance_id.to_string() != target_id);
+                                    drop(data);
+                                    
+                                    let mut sessions = app_state.player_sessions.lock().unwrap();
+                                    if let Some(session) = sessions.get_mut(&player_id) {
+                                        session.player.combat_state = None;
+                                        let msg = ServerMessage::Description { payload: format!("你击败了{}！", npc_name.yellow()) };
+                                        if let Ok(json) = serde_json::to_string(&msg) {
+                                            let _ = session.sender.try_send(Message::Text(json));
+                                        }
+                                        
+                                        let quest_msg = session.player.on_kill(&npc_proto_id.to_string(), &app_state.world_state.static_data.quests);
+                                        if !quest_msg.is_empty() {
+                                            let qmsg = ServerMessage::Info { payload: quest_msg };
+                                            if let Ok(json) = serde_json::to_string(&qmsg) {
+                                                let _ = session.sender.try_send(Message::Text(json));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    combat::CombatResult::Miss { log } => {
+                        let sessions = app_state.player_sessions.lock().unwrap();
+                        if let Some(session) = sessions.get(&player_id) {
+                            let msg = ServerMessage::Description { payload: log };
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                let _ = session.sender.try_send(Message::Text(json));
+                            }
+                        }
+                    }
+                    combat::CombatResult::TargetKilled { log, .. } => {
+                        let mut sessions = app_state.player_sessions.lock().unwrap();
+                        if let Some(session) = sessions.get_mut(&player_id) {
+                            session.player.combat_state = None;
+                            let msg = ServerMessage::Description { payload: log };
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                let _ = session.sender.try_send(Message::Text(json));
+                            }
+                        }
+                    }
+                    combat::CombatResult::InsufficientQi { log } => {
+                        let sessions = app_state.player_sessions.lock().unwrap();
+                        if let Some(session) = sessions.get(&player_id) {
+                            let msg = ServerMessage::Error { payload: log };
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                let _ = session.sender.try_send(Message::Text(json));
+                            }
+                        }
+                    }
+                    combat::CombatResult::Heal { log, .. } => {
+                        let mut sessions = app_state.player_sessions.lock().unwrap();
+                        if let Some(session) = sessions.get_mut(&player_id) {
+                            let msg = ServerMessage::Description { payload: log };
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                let _ = session.sender.try_send(Message::Text(json));
+                            }
+                        }
+                    }
                 }
             }
         }

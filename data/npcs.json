@@ -8,7 +8,8 @@
       "level": 99,
       "ai": "friendly",
       "flags": ["invincible", "no_kill"],
-      "dialog_id": "dlg_fairy_01"
+      "dialog_id": "dlg_fairy_01",
+      "display_prefix": "仙子"
     },
     "1002": {
       "name": "老村长",
@@ -17,7 +18,8 @@
       "level": 10,
       "ai": "friendly",
       "flags": ["quest_giver"],
-      "dialog_id": "dlg_chief_01"
+      "dialog_id": "dlg_chief_01",
+      "display_prefix": "NPC"
     },
     "1003": {
       "name": "樵夫大叔",
@@ -25,7 +27,8 @@
       "description": "结实的肌肉显示出 he 长年累月的劳作成果。",
       "level": 5,
       "ai": "friendly",
-      "scripts": { "on_work": "trigger_woodcutting" }
+      "scripts": { "on_work": "trigger_woodcutting" },
+      "display_prefix": "NPC"
     },
     "2000": {
       "name": "告示牌",
@@ -34,7 +37,8 @@
       "level": 0,
       "ai": "friendly",
       "flags": ["quest_board", "no_kill", "invincible"],
-      "dialog_id": "dlg_quest_board"
+      "dialog_id": "dlg_quest_board",
+      "display_prefix": "物件"
     }
   }
 }

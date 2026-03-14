@@ -5,24 +5,38 @@
       "name": "灵雾妖",
       "description": "一团漂浮的雾气修炼成精，攻击力微弱",
       "level": 1,
-      "max_hp": 50,
+      "max_hp": 200,
       "attack": 5,
       "defense": 2,
       "exp_reward": 10,
       "shell_reward": 5,
-      "is_aggro": false
+      "is_aggro": false,
+      "default_skill_id": "sword_1",
+      "health_states": [
+        {"name": "完好", "hp_threshold": 1.0, "description": "真元充沛，毫发无损"},
+        {"name": "轻伤", "hp_threshold": 0.8, "description": "气息微乱，护体灵光闪烁"},
+        {"name": "重伤", "hp_threshold": 0.5, "description": "发丝凌乱，嘴角溢出一丝鲜血"},
+        {"name": "濒死", "hp_threshold": 0.2, "description": "摇摇欲坠，犹如风中残烛"}
+      ]
     },
     "snake_1": {
       "id": "snake_1",
       "name": "翠竹蛇",
       "description": "竹林中的毒蛇，行动迅捷",
       "level": 2,
-      "max_hp": 80,
+      "max_hp": 300,
       "attack": 12,
       "defense": 5,
       "exp_reward": 25,
       "shell_reward": 10,
-      "is_aggro": true
+      "is_aggro": true,
+      "default_skill_id": "sword_1",
+      "health_states": [
+        {"name": "完好", "hp_threshold": 1.0, "description": "吐信嘶鸣，鳞片泛着寒光"},
+        {"name": "轻伤", "hp_threshold": 0.8, "description": "蛇身见血，攻势稍缓"},
+        {"name": "重伤", "hp_threshold": 0.5, "description": "蛇信吞吐不定，已露疲态"},
+        {"name": "濒死", "hp_threshold": 0.2, "description": "蜷缩在地，只剩最后一口生气"}
+      ]
     },
     "wolf_1": {
       "id": "wolf_1",
@@ -34,7 +48,14 @@
       "defense": 8,
       "exp_reward": 50,
       "shell_reward": 20,
-      "is_aggro": true
+      "is_aggro": true,
+      "default_skill_id": "sword_1",
+      "health_states": [
+        {"name": "完好", "hp_threshold": 1.0, "description": "嗜血狼目露凶光，獠牙毕露"},
+        {"name": "轻伤", "hp_threshold": 0.8, "description": "狼毛染血，咆哮不止"},
+        {"name": "重伤", "hp_threshold": 0.5, "description": "瘸腿而行，攻势大不如前"},
+        {"name": "濒死", "hp_threshold": 0.2, "description": "哀嚎连连，已是强弩之末"}
+      ]
     },
     "ghost_1": {
       "id": "ghost_1",
@@ -46,7 +67,14 @@
       "defense": 3,
       "exp_reward": 80,
       "shell_reward": 30,
-      "is_aggro": true
+      "is_aggro": true,
+      "default_skill_id": "thunder_1",
+      "health_states": [
+        {"name": "完好", "hp_threshold": 1.0, "description": "鬼气森森，身形飘忽不定"},
+        {"name": "轻伤", "hp_threshold": 0.8, "description": "魂体变得有些透明"},
+        {"name": "重伤", "hp_threshold": 0.5, "description": "鬼泣声声，气息衰弱"},
+        {"name": "濒死", "hp_threshold": 0.2, "description": "几欲消散，只剩最后一缕幽魂"}
+      ]
     }
   }
 }

@@ -88,6 +88,15 @@ let names: Vec<String> = {
 };
 ```
 
+**补充：已持有 session_lock 时获取其他数据**
+
+如果已经持有 `session_lock`，需要获取其他数据源（如 `dynamic_data`），必须：
+1. 先提取需要的简单数据（如 player_prefix、room_id）
+2. 释放 `session_lock`（使用 `drop(session_lock)`）
+3. 再获取其他锁
+
+Look/Go 命令需要用这个模式。
+
 ### 4. 玩家状态同步
 
 玩家名称和位置信息需要同步到两个地方:

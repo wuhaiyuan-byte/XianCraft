@@ -1,8 +1,9 @@
 use crate::world_model::SkillTemplate;
 use colored::*;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CombatResult {
     Hit {
         damage: i32,
@@ -24,6 +25,31 @@ pub enum CombatResult {
         amount: i32,
         log: String,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombatState {
+    pub target_id: String,
+    pub target_name: String,
+    pub target_is_player: bool,
+    pub current_skill_id: String,
+    pub combo_index: usize,
+    pub last_attack_tick: u64,
+    pub is_in_combat: bool,
+}
+
+impl CombatState {
+    pub fn new(target_id: String, target_name: String, target_is_player: bool, skill_id: String, tick: u64) -> Self {
+        Self {
+            target_id,
+            target_name,
+            target_is_player,
+            current_skill_id: skill_id,
+            combo_index: 0,
+            last_attack_tick: tick,
+            is_in_combat: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -164,4 +190,73 @@ pub fn check_can_cast_skill(skill: &SkillTemplate, current_qi: i32) -> bool {
 
 pub fn get_skill_cost(skill: &SkillTemplate) -> (i32, i32) {
     (skill.cost_qi as i32, skill.cost_hp as i32)
+}
+
+pub fn process_combat_move(
+    attacker_stats: &CombatStats,
+    defender_stats: &CombatStats,
+    skill: &SkillTemplate,
+    combo_index: usize,
+) -> (i32, String, bool) {
+    let mut rng = rand::thread_rng();
+    
+    let moves = &skill.moves;
+    if moves.is_empty() {
+        let base_damage = calculate_base_damage(attacker_stats);
+        let final_damage = calculate_defense_reduction(base_damage, defender_stats.defense);
+        let is_crit = rng.gen_range(0..100) < 15;
+        let damage = if is_crit { (final_damage as f32 * 1.5) as i32 } else { final_damage };
+        let log = format!(
+            "{} 对 {} 发起了攻击，造成了 {} 点伤害",
+            attacker_stats.name.yellow(),
+            defender_stats.name.cyan(),
+            damage.to_string().red()
+        );
+        return (damage, log, is_crit);
+    }
+    
+    let move_idx = combo_index % moves.len();
+    let mve = &moves[move_idx];
+    
+    let base_damage = calculate_base_damage(attacker_stats);
+    let scaled_skill_damage = calculate_skill_damage(skill, attacker_stats.str, attacker_stats.dex, attacker_stats.int);
+    let damage_with_multiplier = (scaled_skill_damage as f32 * mve.damage_multiplier) as i32;
+    let final_damage = calculate_defense_reduction(damage_with_multiplier, defender_stats.defense);
+    
+    let is_crit = rng.gen_range(0..100) < 15;
+    let damage = if is_crit { (final_damage as f32 * 1.5) as i32 } else { final_damage };
+    
+    let mut description = mve.description.clone();
+    description = description.replace("{attacker}", &format!("{}", attacker_stats.name.yellow()));
+    description = description.replace("{defender}", &format!("{}", defender_stats.name.cyan()));
+    
+    if is_crit {
+        description.push_str(" ");
+        description.push_str(&format!("{}暴击！", "【暴击】".red().bold()));
+    }
+    
+    let damage_text = format!("[伤害: {}]", damage.to_string().red().bold());
+    let log = format!("{} {}", damage_text, description);
+    
+    (damage, log, is_crit)
+}
+
+pub fn get_health_state_description(current_hp: i32, max_hp: i32, health_states: &[crate::world_model::HealthStateTemplate]) -> String {
+    if health_states.is_empty() {
+        return "状态良好".to_string();
+    }
+    
+    let hp_ratio = current_hp as f32 / max_hp as f32;
+    
+    for state in health_states.iter() {
+        if hp_ratio >= state.hp_threshold {
+            return state.description.clone();
+        }
+    }
+    
+    health_states.last().map(|s| s.description.clone()).unwrap_or_else(|| "重伤濒死".to_string())
+}
+
+pub fn get_default_skill_for_player() -> String {
+    "sword_1".to_string()
 }

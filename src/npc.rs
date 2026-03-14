@@ -10,7 +10,8 @@ pub struct Npc {
     pub current_room: String,
     pub combat_target: Option<u64>,
     pub dialog_id: Option<String>,
-    
+    pub display_prefix: String,
+
     // Combat stats
     pub hp: i32,
     pub max_hp: i32,
@@ -34,6 +35,11 @@ impl Npc {
             current_room: room_id,
             combat_target: None,
             dialog_id: prototype.dialog_id.clone(),
+            display_prefix: if prototype.display_prefix.is_empty() {
+                "NPC".to_string()
+            } else {
+                prototype.display_prefix.clone()
+            },
             hp: 0,
             max_hp: 0,
             attack: 0,
@@ -41,7 +47,7 @@ impl Npc {
             level: prototype.level as i32,
         }
     }
-    
+
     pub fn init_combat_stats(&mut self, max_hp: i32, attack: i32, defense: i32) {
         self.max_hp = max_hp;
         self.hp = max_hp;
