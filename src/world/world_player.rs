@@ -172,7 +172,8 @@ impl Player {
 
     pub fn update_vitals(&mut self) {
         self.hp_max = self.stats.con * 10 + (self.realm_sub_level as u32 * 30);
-        self.atk = 2 * self.realm_sub_level as u32;
+        // 攻击力 = 基础10 + (力量 * 2) + (境界层数 * 5)
+        self.atk = 10 + (self.stats.str * 2) + (self.realm_sub_level as u32 * 5);
 
         let mut max_qi = (self.stats.con + self.stats.int) * 5;
         if self.root_id == "pseudo" {
