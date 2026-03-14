@@ -136,6 +136,43 @@ pub(crate) fn realm_level_to_name(level: u16, sub_level: u16) -> String {
     }
 }
 
+fn broadcast_room_movement(state: &Arc<AppState>, from_room: &str, to_room: &str, user_name: &Option<String>) {
+    let user_name = match user_name {
+        Some(name) => name.clone(),
+        None => return,
+    };
+
+    let rooms_to_notify = vec![from_room, to_room];
+    
+    for room_id in rooms_to_notify {
+        let players_in_room: Vec<(u64, mpsc::Sender<Message>)> = {
+            let data = state.world_state.dynamic_data.lock().unwrap();
+            let player_ids: Vec<u64> = data.players.iter()
+                .filter(|(id, loc)| loc.room_id == room_id && loc.user_name.as_ref() != Some(&user_name))
+                .map(|(id, _)| *id)
+                .collect();
+            drop(data);
+            
+            let sessions = state.player_sessions.lock().unwrap();
+            player_ids.iter()
+                .filter_map(|id| sessions.get(id).map(|s| (s.player.id, s.sender.clone())))
+                .collect()
+        };
+
+        let message = if room_id == from_room {
+            ServerMessage::Info { payload: format!("{} 离开了。", user_name.yellow()) }
+        } else {
+            ServerMessage::Info { payload: format!("{} 走进了房间。", user_name.cyan()) }
+        };
+
+        if let Ok(json) = serde_json::to_string(&message) {
+            for (_, sender) in players_in_room {
+                let _ = sender.try_send(axum::extract::ws::Message::Text(json.clone()));
+            }
+        }
+    }
+}
+
 pub(crate) fn generate_who_list(state: &Arc<AppState>, use_color: bool) -> String {
     let players_data: Vec<(String, u16, u16, String, u64, bool)> = {
         let sessions = state.player_sessions.lock().unwrap();
@@ -750,8 +787,9 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     } else {
                                         let next_room_id_str = next_room_id.clone();
                                         let user_name = session.user_id.clone();
-                                        tracing::info!("[MOVE] Player {} moved from {} to {}", player_id, current_room_id_str, next_room_id_str);
-                                        world.move_player_to_room(player_id, &next_room_id_str, user_name);
+                                        let from_room_id = current_room_id_str.clone();
+                                        tracing::info!("[MOVE] Player {} moved from {} to {}", player_id, from_room_id, next_room_id_str);
+                                        world.move_player_to_room(player_id, &next_room_id_str, user_name.clone());
                                         
                                         let mut quest_updates = Vec::new();
                                         for status in &mut session.player.active_quests {
@@ -793,6 +831,13 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                         });
 
                                         messages_to_send.push(ServerMessage::Description { payload });
+                                        
+                                        drop(session_lock);
+                                        broadcast_room_movement(&state, &from_room_id, &next_room_id_str, &user_name);
+                                        session_lock = state.player_sessions.lock().unwrap();
+                                        if let Some(session) = session_lock.get_mut(&player_id) {
+                                            session.player.last_input_time = StdSystemTime::now().duration_since(StdSystemTime::UNIX_EPOCH).unwrap().as_secs();
+                                        }
                                     }
                                 } else {
                                     messages_to_send.push(ServerMessage::Error { payload: "You can't go that way.".to_string() });
