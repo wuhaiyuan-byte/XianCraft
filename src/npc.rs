@@ -1,3 +1,4 @@
+use crate::combat::CombatState;
 use crate::world_model::NpcPrototype;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +19,10 @@ pub struct Npc {
     pub attack: i32,
     pub defense: i32,
     pub level: i32,
+
+    // Combat state for auto-combat
+    #[serde(default)]
+    pub combat_state: Option<CombatState>,
 }
 
 impl Npc {
@@ -45,6 +50,7 @@ impl Npc {
             attack: 0,
             defense: 0,
             level: prototype.level as i32,
+            combat_state: None,
         }
     }
 

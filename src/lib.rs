@@ -405,7 +405,12 @@ pub async fn run(world_state: WorldState) {
 async fn game_loop(app_state: Arc<AppState>) {
     let mut tick_counter: u64 = 0;
     const RECOVERY_TICK_INTERVAL: u64 = 10;
-    const COMBAT_TICK_INTERVAL: u64 = 3;
+    
+    let combat_tick_ms = app_state.world_state.static_data.config.combat_tick_ms;
+    let combat_tick_interval = combat_tick_ms / 1000;
+    if combat_tick_interval == 0 {
+        tracing::warn!("combat_tick_ms too small, using default 1 second");
+    }
 
     loop {
         sleep(Duration::from_secs(1)).await;
@@ -438,172 +443,266 @@ async fn game_loop(app_state: Arc<AppState>) {
             }
         }
 
-        if tick_counter % COMBAT_TICK_INTERVAL == 0 {
+        if tick_counter % combat_tick_interval.max(1) == 0 {
             process_combat_ticks(&app_state).await;
         }
     }
 }
 
 async fn process_combat_ticks(app_state: &Arc<AppState>) {
-    let players_in_combat: Vec<(u64, combat::CombatState)> = {
+    #[derive(Clone)]
+    struct CombatEntity {
+        id: u64,
+        is_player: bool,
+        hp: i32,
+        max_hp: i32,
+        atk: i32,
+        defense: i32,
+        level: i32,
+        name: String,
+        target_id: Option<String>,
+        target_is_player: bool,
+        skill_id: String,
+        combo_index: usize,
+    }
+    
+    let mut combat_entities: Vec<CombatEntity> = Vec::new();
+    
+    // Extract players in combat
+    {
         let sessions = app_state.player_sessions.lock().unwrap();
-        sessions.iter()
-            .filter(|(_, s)| s.user_id.is_some() && s.player.combat_state.is_some())
-            .map(|(id, s)| (*id, s.player.combat_state.clone().unwrap()))
-            .collect()
-    };
-
-    for (player_id, combat_state) in players_in_combat {
-        let target_id = combat_state.target_id.clone();
-        let target_is_player = combat_state.target_is_player;
-
-        let attacker_data = {
-            let sessions = app_state.player_sessions.lock().unwrap();
-            sessions.get(&player_id).map(|s| {
-                let p = &s.player;
-                combat::CombatStats {
-                    hp: p.hp as i32,
-                    max_hp: p.hp_max as i32,
-                    attack: p.atk as i32,
-                    defense: 5,
-                    level: p.realm_level as i32,
-                    name: p.name.clone(),
-                    is_player: true,
-                    str: p.stats.str as i32,
-                    dex: p.stats.dex as i32,
-                    int: p.stats.int as i32,
-                }
-            })
-        };
-
-        if let Some(attacker_stats) = attacker_data {
-            let defender_stats = if target_is_player {
-                let sessions = app_state.player_sessions.lock().unwrap();
-                sessions.get(&target_id.parse().unwrap_or(0)).map(|s| {
-                    let p = &s.player;
-                    combat::CombatStats {
-                        hp: p.hp as i32,
-                        max_hp: p.hp_max as i32,
-                        attack: p.atk as i32,
-                        defense: 5,
-                        level: p.realm_level as i32,
-                        name: p.name.clone(),
+        for (id, session) in sessions.iter() {
+            if session.user_id.is_some() {
+                if let Some(cs) = &session.player.combat_state {
+                    combat_entities.push(CombatEntity {
+                        id: *id,
                         is_player: true,
-                        str: p.stats.str as i32,
-                        dex: p.stats.dex as i32,
-                        int: p.stats.int as i32,
-                    }
-                })
-            } else {
-                let data = app_state.world_state.dynamic_data.lock().unwrap();
-                data.npcs.values().find(|n| n.instance_id.to_string() == target_id).map(|n| {
-                    combat::CombatStats {
-                        hp: n.hp as i32,
-                        max_hp: n.max_hp as i32,
-                        attack: n.attack as i32,
-                        defense: n.defense as i32,
-                        level: n.level as i32,
-                        name: n.name.clone(),
-                        is_player: false,
-                        str: 10,
-                        dex: 10,
-                        int: 10,
-                    }
-                })
-            };
-
-            if let Some(defender_stats) = defender_stats {
-                let result = combat::resolve_attack(&attacker_stats, &defender_stats, None);
+                        hp: session.player.hp as i32,
+                        max_hp: session.player.hp_max as i32,
+                        atk: session.player.atk as i32,
+                        defense: 5,
+                        level: session.player.realm_level as i32,
+                        name: session.player.name.clone(),
+                        target_id: Some(cs.target_id.clone()),
+                        target_is_player: cs.target_is_player,
+                        skill_id: cs.current_skill_id.clone(),
+                        combo_index: cs.combo_index,
+                    });
+                }
+            }
+        }
+    }
+    
+    // Extract NPCs in combat
+    {
+        let data = app_state.world_state.dynamic_data.lock().unwrap();
+        let npcs_in_combat: Vec<_> = data.npcs.iter()
+            .filter(|(_, npc)| npc.combat_state.is_some())
+            .collect();
+        tracing::debug!("NPCs in combat: {:?}", npcs_in_combat.len());
+        
+        for (instance_id, npc) in npcs_in_combat {
+            if let Some(cs) = &npc.combat_state {
+                combat_entities.push(CombatEntity {
+                    id: *instance_id,
+                    is_player: false,
+                    hp: npc.hp,
+                    max_hp: npc.max_hp as i32,
+                    atk: npc.attack as i32,
+                    defense: npc.defense as i32,
+                    level: npc.level as i32,
+                    name: npc.name.clone(),
+                    target_id: Some(cs.target_id.clone()),
+                    target_is_player: cs.target_is_player,
+                    skill_id: cs.current_skill_id.clone(),
+                    combo_index: cs.combo_index,
+                });
+            }
+        }
+    }
+    
+    tracing::debug!("Total combat entities: {:?}", combat_entities.len());
+    
+    // Compute combat results
+    // (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, message_to_attacker, message_to_defender, is_dead)
+    let mut updates: Vec<(u64, bool, u64, bool, i32, String, String, bool)> = Vec::new();
+    
+    for entity in &combat_entities {
+        if let Some(target_id_str) = &entity.target_id {
+            let target_id: u64 = target_id_str.parse().unwrap_or(0);
+            
+            let target = combat_entities.iter().find(|e| {
+                if entity.target_is_player {
+                    e.is_player && e.id == target_id
+                } else {
+                    !e.is_player && e.id == target_id
+                }
+            });
+            
+            if let Some(target) = target {
+                let attacker_stats = combat::CombatStats {
+                    hp: entity.hp,
+                    max_hp: entity.max_hp,
+                    attack: entity.atk,
+                    defense: entity.defense,
+                    level: entity.level,
+                    name: entity.name.clone(),
+                    is_player: entity.is_player,
+                    str: 10,
+                    dex: 10,
+                    int: 10,
+                };
+                
+                let defender_stats = combat::CombatStats {
+                    hp: target.hp,
+                    max_hp: target.max_hp,
+                    attack: target.atk,
+                    defense: target.defense,
+                    level: target.level,
+                    name: target.name.clone(),
+                    is_player: target.is_player,
+                    str: 10,
+                    dex: 10,
+                    int: 10,
+                };
+                
+                let skill = app_state.world_state.static_data.skills.get(&entity.skill_id);
+                let skill_name = skill.map(|s| s.name.clone()).unwrap_or_else(|| entity.skill_id.clone());
+                let result = combat::resolve_attack(&attacker_stats, &defender_stats, skill);
                 
                 match result {
                     combat::CombatResult::Hit { damage, log, is_crit: _ } => {
-                        let mut sessions = app_state.player_sessions.lock().unwrap();
-                        if let Some(session) = sessions.get_mut(&player_id) {
-                            let msg = ServerMessage::Description { payload: log };
-                            if let Ok(json) = serde_json::to_string(&msg) {
-                                let _ = session.sender.try_send(Message::Text(json));
-                            }
-                        }
-
-                        if target_is_player {
-                            let mut sessions = app_state.player_sessions.lock().unwrap();
-                            if let Some(target) = sessions.get_mut(&target_id.parse().unwrap_or(0)) {
-                                target.player.hp = (target.player.hp as i32 - damage).max(0) as u32;
-                                if target.player.hp == 0 {
-                                    target.player.combat_state = None;
-                                    if let Some(session) = sessions.get_mut(&player_id) {
-                                        session.player.combat_state = None;
-                                        let msg = ServerMessage::Description { payload: format!("你击败了{}！", defender_stats.name.yellow()) };
-                                        if let Ok(json) = serde_json::to_string(&msg) {
-                                            let _ = session.sender.try_send(Message::Text(json));
-                                        }
-                                    }
-                                }
-                            }
+                        let new_hp = (target.hp - damage).max(0);
+                        let hp_percent = (new_hp as f32 / target.max_hp as f32 * 100.0) as i32;
+                        
+                        let health_state = if hp_percent > 80 {
+                            "真元充沛，毫发无损"
+                        } else if hp_percent > 50 {
+                            "气息微乱，护体灵光闪烁"
+                        } else if hp_percent > 20 {
+                            "发丝凌乱，嘴角溢出一丝鲜血"
                         } else {
-                            let mut data = app_state.world_state.dynamic_data.lock().unwrap();
-                            if let Some(npc) = data.npcs.values_mut().find(|n| n.instance_id.to_string() == target_id) {
-                                npc.hp = (npc.hp as i32 - damage).max(0);
-                                if npc.hp == 0 {
-                                    let npc_name = npc.name.clone();
-                                    let npc_proto_id = npc.prototype_id;
-                                    data.npcs.retain(|_, n| n.instance_id.to_string() != target_id);
-                                    drop(data);
-                                    
-                                    let mut sessions = app_state.player_sessions.lock().unwrap();
-                                    if let Some(session) = sessions.get_mut(&player_id) {
-                                        session.player.combat_state = None;
-                                        let msg = ServerMessage::Description { payload: format!("你击败了{}！", npc_name.yellow()) };
-                                        if let Ok(json) = serde_json::to_string(&msg) {
-                                            let _ = session.sender.try_send(Message::Text(json));
-                                        }
-                                        
-                                        let quest_msg = session.player.on_kill(&npc_proto_id.to_string(), &app_state.world_state.static_data.quests);
-                                        if !quest_msg.is_empty() {
-                                            let qmsg = ServerMessage::Info { payload: quest_msg };
-                                            if let Ok(json) = serde_json::to_string(&qmsg) {
-                                                let _ = session.sender.try_send(Message::Text(json));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                            "摇摇欲坠，犹如风中残烛"
+                        };
+                        
+                        let new_hp_defender = new_hp;
+                        
+                        let msg_to_attacker = if entity.is_player {
+                            format!("你对{}使出{},\n造成了{}点伤害。\n{}", 
+                                target.name, skill_name, damage, health_state.yellow())
+                        } else {
+                            format!("{}对你使出{},\n造成了{}点伤害。\n{}", 
+                                entity.name, skill_name, damage, health_state.yellow())
+                        };
+                        
+                        let msg_to_defender = if target.is_player {
+                            format!("你对{}使出{},\n造成了{}点伤害。\n{}", 
+                                entity.name, skill_name, damage, health_state.yellow())
+                        } else {
+                            format!("{}对你使出{},\n造成了{}点伤害。\n{}", 
+                                entity.name, skill_name, damage, health_state.yellow())
+                        };
+                        
+                        updates.push((entity.id, entity.is_player, target.id, target.is_player, new_hp_defender, msg_to_attacker, msg_to_defender, new_hp <= 0));
                     }
                     combat::CombatResult::Miss { log } => {
-                        let sessions = app_state.player_sessions.lock().unwrap();
-                        if let Some(session) = sessions.get(&player_id) {
-                            let msg = ServerMessage::Description { payload: log };
-                            if let Ok(json) = serde_json::to_string(&msg) {
+                        let msg_to_attacker = if entity.is_player {
+                            format!("你对{}的攻击落空了！", target.name)
+                        } else {
+                            format!("{}对你的攻击落空了！", entity.name)
+                        };
+                        
+                        let msg_to_defender = if target.is_player {
+                            format!("你对{}的攻击落空了！", entity.name)
+                        } else {
+                            format!("{}的攻击落空了！", entity.name)
+                        };
+                        
+                        updates.push((entity.id, entity.is_player, target.id, target.is_player, target.hp, msg_to_attacker, msg_to_defender, false));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    
+    // Apply updates for players
+    for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, msg_to_attacker, msg_to_defender, is_dead) in &updates {
+        if *attacker_is_player {
+            let mut sessions = app_state.player_sessions.lock().unwrap();
+            if let Some(session) = sessions.get_mut(attacker_id) {
+                if !msg_to_attacker.is_empty() {
+                    let msg = ServerMessage::Description { payload: msg_to_attacker.clone() };
+                    if let Ok(json) = serde_json::to_string(&msg) {
+                        let _ = session.sender.try_send(Message::Text(json));
+                    }
+                }
+            }
+            
+            if *defender_is_player {
+                if let Some(session) = sessions.get_mut(defender_id) {
+                    session.player.hp = *new_hp as u32;
+                    if !msg_to_defender.is_empty() {
+                        let msg = ServerMessage::Description { payload: msg_to_defender.clone() };
+                        if let Ok(json) = serde_json::to_string(&msg) {
+                            let _ = session.sender.try_send(Message::Text(json));
+                        }
+                    }
+                    if *is_dead {
+                        session.player.combat_state = None;
+                        let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", session.player.name.yellow());
+                        let msg = ServerMessage::Description { payload: death_msg };
+                        if let Ok(json) = serde_json::to_string(&msg) {
+                            let _ = session.sender.try_send(Message::Text(json));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Apply updates for NPCs (HP, death)
+    for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
+        if !*defender_is_player {
+            if *is_dead {
+                let mut data = app_state.world_state.dynamic_data.lock().unwrap();
+                if let Some(npc) = data.npcs.get(defender_id) {
+                    let npc_proto_id = npc.prototype_id;
+                    let npc_name = npc.name.clone();
+                    let npc_combat_state = npc.combat_state.clone();
+                    data.npcs.remove(defender_id);
+                    drop(data);
+                    
+                    // Notify attacker
+                    let attacker_id: u64 = attacker_id.to_string().parse().unwrap_or(0);
+                    let mut sessions = app_state.player_sessions.lock().unwrap();
+                    if let Some(session) = sessions.get_mut(&attacker_id) {
+                        session.player.combat_state = None;
+                        let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", npc_name.yellow());
+                        let msg = ServerMessage::Description { payload: death_msg };
+                        if let Ok(json) = serde_json::to_string(&msg) {
+                            let _ = session.sender.try_send(Message::Text(json));
+                        }
+                        
+                        let quest_msg = session.player.on_kill(&npc_proto_id.to_string(), &app_state.world_state.static_data.quests);
+                        if !quest_msg.is_empty() {
+                            if let Ok(json) = serde_json::to_string(&ServerMessage::Info { payload: quest_msg }) {
                                 let _ = session.sender.try_send(Message::Text(json));
                             }
                         }
                     }
-                    combat::CombatResult::TargetKilled { log, .. } => {
-                        let mut sessions = app_state.player_sessions.lock().unwrap();
-                        if let Some(session) = sessions.get_mut(&player_id) {
-                            session.player.combat_state = None;
-                            let msg = ServerMessage::Description { payload: log };
-                            if let Ok(json) = serde_json::to_string(&msg) {
-                                let _ = session.sender.try_send(Message::Text(json));
-                            }
-                        }
-                    }
-                    combat::CombatResult::InsufficientQi { log } => {
-                        let sessions = app_state.player_sessions.lock().unwrap();
-                        if let Some(session) = sessions.get(&player_id) {
-                            let msg = ServerMessage::Error { payload: log };
-                            if let Ok(json) = serde_json::to_string(&msg) {
-                                let _ = session.sender.try_send(Message::Text(json));
-                            }
-                        }
-                    }
-                    combat::CombatResult::Heal { log, .. } => {
-                        let mut sessions = app_state.player_sessions.lock().unwrap();
-                        if let Some(session) = sessions.get_mut(&player_id) {
-                            let msg = ServerMessage::Description { payload: log };
-                            if let Ok(json) = serde_json::to_string(&msg) {
-                                let _ = session.sender.try_send(Message::Text(json));
+                }
+            } else {
+                let mut data = app_state.world_state.dynamic_data.lock().unwrap();
+                if let Some(npc) = data.npcs.get_mut(defender_id) {
+                    npc.hp = *new_hp;
+                    // Update combo index
+                    if let Some(cs) = &mut npc.combat_state {
+                        if let Some(skill) = app_state.world_state.static_data.skills.get(&cs.current_skill_id) {
+                            if cs.combo_index + 1 >= skill.moves.len() {
+                                cs.combo_index = 0;
+                            } else {
+                                cs.combo_index += 1;
                             }
                         }
                     }
@@ -787,7 +886,6 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
         let who_output = generate_who_list(&state, true);
         messages_to_send.push(ServerMessage::Description { payload: who_output });
     } else {
-    {
         let mut session_lock = state.player_sessions.lock().unwrap();
         let session = match session_lock.get_mut(&player_id) {
             Some(s) => s,
@@ -880,38 +978,40 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     };
 
                                     if is_monster {
-                                        let combat_msg = format!("你对着 {} 发起猛攻，几个回合后将其击败了！", npc.name);
-                                        messages_to_send.push(ServerMessage::Description { payload: combat_msg });
-
-                                        // Update quest progress
-                                        let quest_msg = session.player.on_kill(&npc.prototype_id.to_string(), &world.static_data.quests);
-                                        if !quest_msg.is_empty() {
-                                            messages_to_send.push(ServerMessage::Info { payload: quest_msg });
-                                        }
-
-                                        // Check for completed kill quests and grant rewards immediately
-                                        let completed_ids: Vec<String> = session.player.active_quests.iter()
-                                            .filter(|status| status.is_completed)
-                                            .filter_map(|status| {
-                                                world.static_data.quests.get(&status.quest_id)
-                                                    .filter(|quest| quest.quest_type == "kill")
-                                                    .map(|_| status.quest_id.clone())
-                                            })
-                                            .collect();
+                                        // Initialize player's combat state
+                                        let tick = StdSystemTime::now()
+                                            .duration_since(StdSystemTime::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs();
                                         
-                                        for id in &completed_ids {
-                                            if let Some(quest) = world.static_data.quests.get(id as &String) {
-                                                let reward_msg = session.player.grant_reward(&quest.rewards);
-                                                messages_to_send.push(ServerMessage::Info { payload: reward_msg });
-                                            }
-                                            session.player.completed_quests.insert(id.clone());
-                                        }
+                                        let default_skill = world.static_data.skills.get("sword_1")
+                                            .or_else(|| world.static_data.skills.values().next())
+                                            .map(|s| s.id.clone())
+                                            .unwrap_or_else(|| "basic_attack".to_string());
                                         
-                                        session.player.active_quests.retain(|q| !completed_ids.contains(&q.quest_id));
-
-                                        // Remove NPC instance
+                                        session.player.combat_state = Some(combat::CombatState::new(
+                                            npc.instance_id.to_string(),
+                                            npc.name.clone(),
+                                            false,
+                                            default_skill.clone(),
+                                            tick,
+                                        ));
+                                        
+                                        // Initialize NPC's combat state (auto-counter)
                                         let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                        dynamic_data.npcs.remove(&npc.instance_id);
+                                        if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
+                                            npc_instance.combat_state = Some(combat::CombatState::new(
+                                                player_id.to_string(),
+                                                session.user_id.clone().unwrap_or_default(),
+                                                true,
+                                                default_skill,
+                                                tick,
+                                            ));
+                                        }
+                                        drop(dynamic_data);
+                                        
+                                        let combat_msg = format!("你屏息凝神，锁定了{}，战斗开始！", npc.name.yellow());
+                                        messages_to_send.push(ServerMessage::Description { payload: combat_msg });
                                     } else {
                                         messages_to_send.push(ServerMessage::Error { payload: format!("{} 看起来很友善，你下不了手。", npc.name) });
                                     }
@@ -920,21 +1020,6 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 }
                             }
                             Command::Kill { target } => {
-                                let attacker_stats = {
-                                    let p = &session.player;
-                                    combat::CombatStats {
-                                        hp: p.hp as i32,
-                                        max_hp: p.hp_max as i32,
-                                        attack: p.atk as i32,
-                                        defense: 5,
-                                        level: p.realm_level as i32,
-                                        name: p.name.clone(),
-                                        is_player: true,
-                                        str: p.stats.str as i32,
-                                        dex: p.stats.dex as i32,
-                                        int: p.stats.int as i32,
-                                    }
-                                };
                                 let target_npc = {
                                     let data = world.dynamic_data.lock().unwrap();
                                     data.npcs.values()
@@ -943,48 +1028,59 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 };
                                 
                                 if let Some(npc) = target_npc {
-                                    let defender_stats = combat::CombatStats {
-                                        hp: npc.hp,
-                                        max_hp: npc.max_hp,
-                                        attack: npc.attack,
-                                        defense: npc.defense,
-                                        level: npc.level,
-                                        name: npc.name.clone(),
-                                        is_player: false,
-                                        str: 10,
-                                        dex: 10,
-                                        int: 10,
+                                    let is_monster = if let Some(proto) = world.static_data.npc_prototypes.get(&npc.prototype_id) {
+                                        proto.ai == "monster" || !proto.flags.contains(&"friendly".to_string())
+                                    } else {
+                                        true
                                     };
                                     
-                                    let result = combat::resolve_attack(&attacker_stats, &defender_stats, None);
-                                    
-                                    match result {
-                                        combat::CombatResult::Hit { damage, is_crit: _, log } => {
-                                            messages_to_send.push(ServerMessage::Description { payload: log });
-                                            
-                                            let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                            if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
-                                                npc_instance.hp -= damage;
-                                                if npc_instance.hp <= 0 {
-                                                    dynamic_data.npcs.remove(&npc.instance_id);
-                                                    messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
-                                                }
-                                            }
+                                    if !is_monster {
+                                        messages_to_send.push(ServerMessage::Error { payload: format!("{} 看起来很友善，你下不了手。", npc.name) });
+                                    } else {
+                                        // Initialize player's combat state
+                                        let tick = StdSystemTime::now()
+                                            .duration_since(StdSystemTime::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs();
+                                        
+                                        let default_skill = world.static_data.skills.get("sword_1")
+                                            .or_else(|| world.static_data.skills.values().next())
+                                            .map(|s| s.id.clone())
+                                            .unwrap_or_else(|| "basic_attack".to_string());
+                                        
+                                        // Get NPC's default skill from monster registry
+                                        let npc_default_skill = {
+                                            let proto = world.static_data.monsters.get(&npc.prototype_id.to_string());
+                                            proto.and_then(|m| m.default_skill_id.clone())
+                                                .unwrap_or_else(|| default_skill.clone())
+                                        };
+                                        
+                                        session.player.combat_state = Some(combat::CombatState::new(
+                                            npc.instance_id.to_string(),
+                                            npc.name.clone(),
+                                            false,
+                                            default_skill.clone(),
+                                            tick,
+                                        ));
+                                        
+                                        // Initialize NPC's combat state (auto-counter) with NPC's own skill
+                                        let mut dynamic_data = world.dynamic_data.lock().unwrap();
+                                        if let Some(npc_instance) = dynamic_data.npcs.get_mut(&npc.instance_id) {
+                                            npc_instance.combat_state = Some(combat::CombatState::new(
+                                                player_id.to_string(),
+                                                session.user_id.clone().unwrap_or_default(),
+                                                true,
+                                                npc_default_skill,
+                                                tick,
+                                            ));
                                         }
-                                        combat::CombatResult::TargetKilled { damage: _, is_crit: _, log } => {
-                                            messages_to_send.push(ServerMessage::Description { payload: log });
-                                            
-                                            let mut dynamic_data = world.dynamic_data.lock().unwrap();
-                                            dynamic_data.npcs.remove(&npc.instance_id);
-                                            messages_to_send.push(ServerMessage::Description { payload: format!("你击败了{}！", npc.name.yellow()) });
-                                        }
-                                        combat::CombatResult::Miss { log } => {
-                                            messages_to_send.push(ServerMessage::Description { payload: log });
-                                        }
-                                        _ => {}
+                                        drop(dynamic_data);
+                                        
+                                        let combat_msg = format!("你屏息凝神，锁定了{}，战斗开始！", npc.name.yellow());
+                                        messages_to_send.push(ServerMessage::Description { payload: combat_msg });
                                     }
                                 } else {
-                                    messages_to_send.push(ServerMessage::Error { payload: format!("这里没有 {}。", target) });
+                                    messages_to_send.push(ServerMessage::Error { payload: format!("你在这没看到 {}。", target) });
                                 }
                             }
                             Command::Cast { skill, target } => {
@@ -1113,7 +1209,12 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 }
                             }
                             Command::Go { direction } => {
-                                    if let Some(next_room_id) = current_room.exits.get(&direction) {
+                                // Check if in combat
+                                if let Some(cs) = &session.player.combat_state {
+                                    messages_to_send.push(ServerMessage::Error { 
+                                        payload: format!("你正在和{}战斗，不能移动！", cs.target_name) 
+                                    });
+                                } else if let Some(next_room_id) = current_room.exits.get(&direction) {
                                     if !session.player.consume_stamina(1) {
                                         messages_to_send.push(ServerMessage::Error { payload: "你太累了，走不动了。".to_string() });
                                     } else {
@@ -1413,7 +1514,6 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                 messages_to_send.push(ServerMessage::Error { payload: "Critical error: Your location is unknown.".to_string() });
             }
         }
-    }
     }
 
     for server_msg in messages_to_send {

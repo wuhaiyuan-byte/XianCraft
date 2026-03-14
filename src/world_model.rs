@@ -7,6 +7,12 @@ pub struct WorldConfig {
     pub welcome_message: String,
     pub realms: Vec<Realm>,
     pub player_display_prefix: String,
+    #[serde(default = "default_combat_tick_ms")]
+    pub combat_tick_ms: u64,
+}
+
+fn default_combat_tick_ms() -> u64 {
+    500
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

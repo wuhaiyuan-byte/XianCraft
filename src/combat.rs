@@ -39,7 +39,13 @@ pub struct CombatState {
 }
 
 impl CombatState {
-    pub fn new(target_id: String, target_name: String, target_is_player: bool, skill_id: String, tick: u64) -> Self {
+    pub fn new(
+        target_id: String,
+        target_name: String,
+        target_is_player: bool,
+        skill_id: String,
+        tick: u64,
+    ) -> Self {
         Self {
             target_id,
             target_name,
@@ -83,15 +89,11 @@ pub fn resolve_attack(
     skill_opt: Option<&SkillTemplate>,
 ) -> CombatResult {
     let mut rng = rand::thread_rng();
-    
-    let hit_chance = if attacker_stats.level > defender_stats.level {
-        95
-    } else if attacker_stats.level < defender_stats.level {
-        75
-    } else {
-        85
-    };
-    
+
+    // Base hit rate is 80%, level difference affects it
+    let level_diff = attacker_stats.level - defender_stats.level;
+    let hit_chance = (80 + level_diff * 5).clamp(50, 95);
+
     if rng.gen_range(0..100) > hit_chance {
         return CombatResult::Miss {
             log: format!(
@@ -101,23 +103,28 @@ pub fn resolve_attack(
             ),
         };
     }
-    
+
     let mut base_damage = calculate_base_damage(attacker_stats);
-    
+
     if let Some(skill) = skill_opt {
-        base_damage = calculate_skill_damage(skill, attacker_stats.str, attacker_stats.dex, attacker_stats.int);
+        base_damage = calculate_skill_damage(
+            skill,
+            attacker_stats.str,
+            attacker_stats.dex,
+            attacker_stats.int,
+        );
     }
-    
+
     let crit_chance = 10 + (attacker_stats.level / 5);
     let is_crit = rng.gen_range(0..100) < crit_chance;
-    
+
     if is_crit {
         base_damage = (base_damage as f32 * 1.5) as i32;
     }
-    
+
     let final_damage = calculate_defense_reduction(base_damage, defender_stats.defense);
     let will_kill = defender_stats.hp - final_damage <= 0;
-    
+
     let log = if is_crit {
         format!(
             "你{}运转功法，对{}使出{}，造成了{}点{}！",
@@ -136,7 +143,7 @@ pub fn resolve_attack(
             final_damage.to_string().red()
         )
     };
-    
+
     if will_kill {
         CombatResult::TargetKilled {
             damage: final_damage,
@@ -160,19 +167,17 @@ pub fn calculate_skill_damage(skill: &SkillTemplate, str: i32, dex: i32, int: i3
         "con" => 16.0,
         _ => 16.0,
     };
-    
+
     let scaling_damage = (scaling_attr_value * skill.scaling_multiplier) as i32;
     (skill.base_damage as i32) + scaling_damage
 }
 
-pub fn resolve_heal(
-    skill: &SkillTemplate,
-    healer_stats: &CombatStats,
-) -> CombatResult {
-    let heal_amount = calculate_skill_damage(skill, healer_stats.str, healer_stats.dex, healer_stats.int).abs();
+pub fn resolve_heal(skill: &SkillTemplate, healer_stats: &CombatStats) -> CombatResult {
+    let heal_amount =
+        calculate_skill_damage(skill, healer_stats.str, healer_stats.dex, healer_stats.int).abs();
     let actual_heal = (heal_amount as f32 * 0.5) as i32;
     let capped_heal = actual_heal.min(healer_stats.max_hp - healer_stats.hp);
-    
+
     CombatResult::Heal {
         amount: capped_heal,
         log: format!(
@@ -199,13 +204,17 @@ pub fn process_combat_move(
     combo_index: usize,
 ) -> (i32, String, bool) {
     let mut rng = rand::thread_rng();
-    
+
     let moves = &skill.moves;
     if moves.is_empty() {
         let base_damage = calculate_base_damage(attacker_stats);
         let final_damage = calculate_defense_reduction(base_damage, defender_stats.defense);
         let is_crit = rng.gen_range(0..100) < 15;
-        let damage = if is_crit { (final_damage as f32 * 1.5) as i32 } else { final_damage };
+        let damage = if is_crit {
+            (final_damage as f32 * 1.5) as i32
+        } else {
+            final_damage
+        };
         let log = format!(
             "{} 对 {} 发起了攻击，造成了 {} 点伤害",
             attacker_stats.name.yellow(),
@@ -214,47 +223,63 @@ pub fn process_combat_move(
         );
         return (damage, log, is_crit);
     }
-    
+
     let move_idx = combo_index % moves.len();
     let mve = &moves[move_idx];
-    
+
     let base_damage = calculate_base_damage(attacker_stats);
-    let scaled_skill_damage = calculate_skill_damage(skill, attacker_stats.str, attacker_stats.dex, attacker_stats.int);
+    let scaled_skill_damage = calculate_skill_damage(
+        skill,
+        attacker_stats.str,
+        attacker_stats.dex,
+        attacker_stats.int,
+    );
     let damage_with_multiplier = (scaled_skill_damage as f32 * mve.damage_multiplier) as i32;
     let final_damage = calculate_defense_reduction(damage_with_multiplier, defender_stats.defense);
-    
+
     let is_crit = rng.gen_range(0..100) < 15;
-    let damage = if is_crit { (final_damage as f32 * 1.5) as i32 } else { final_damage };
-    
+    let damage = if is_crit {
+        (final_damage as f32 * 1.5) as i32
+    } else {
+        final_damage
+    };
+
     let mut description = mve.description.clone();
     description = description.replace("{attacker}", &format!("{}", attacker_stats.name.yellow()));
     description = description.replace("{defender}", &format!("{}", defender_stats.name.cyan()));
-    
+
     if is_crit {
         description.push_str(" ");
         description.push_str(&format!("{}暴击！", "【暴击】".red().bold()));
     }
-    
+
     let damage_text = format!("[伤害: {}]", damage.to_string().red().bold());
     let log = format!("{} {}", damage_text, description);
-    
+
     (damage, log, is_crit)
 }
 
-pub fn get_health_state_description(current_hp: i32, max_hp: i32, health_states: &[crate::world_model::HealthStateTemplate]) -> String {
+pub fn get_health_state_description(
+    current_hp: i32,
+    max_hp: i32,
+    health_states: &[crate::world_model::HealthStateTemplate],
+) -> String {
     if health_states.is_empty() {
         return "状态良好".to_string();
     }
-    
+
     let hp_ratio = current_hp as f32 / max_hp as f32;
-    
+
     for state in health_states.iter() {
         if hp_ratio >= state.hp_threshold {
             return state.description.clone();
         }
     }
-    
-    health_states.last().map(|s| s.description.clone()).unwrap_or_else(|| "重伤濒死".to_string())
+
+    health_states
+        .last()
+        .map(|s| s.description.clone())
+        .unwrap_or_else(|| "重伤濒死".to_string())
 }
 
 pub fn get_default_skill_for_player() -> String {
