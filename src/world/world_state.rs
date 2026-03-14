@@ -17,6 +17,7 @@ pub struct DynamicData {
 #[derive(Clone)]
 pub struct PlayerLocation {
     pub room_id: String,
+    pub user_name: Option<String>,
 }
 
 // The main world state, combining static and dynamic data.
@@ -68,9 +69,27 @@ impl WorldState {
         self.static_data.rooms.get(room_id)
     }
 
-    pub fn move_player_to_room(&self, player_id: u64, to_room_id: &str) {
+    pub fn move_player_to_room(&self, player_id: u64, to_room_id: &str, user_name: Option<String>) {
         let mut data = self.dynamic_data.lock().unwrap();
-        data.players.insert(player_id, PlayerLocation { room_id: to_room_id.to_string() });
+        data.players.insert(player_id, PlayerLocation { 
+            room_id: to_room_id.to_string(),
+            user_name,
+        });
+    }
+
+    pub fn get_players_in_room(&self, room_id: &str, exclude_player_id: u64) -> Vec<String> {
+        let data = self.dynamic_data.lock().unwrap();
+        data.players.iter()
+            .filter(|(id, loc)| **id != exclude_player_id && loc.room_id == room_id)
+            .filter_map(|(_, loc)| loc.user_name.clone())
+            .collect()
+    }
+
+    pub fn update_player_name(&self, player_id: u64, user_name: String) {
+        let mut data = self.dynamic_data.lock().unwrap();
+        if let Some(loc) = data.players.get_mut(&player_id) {
+            loc.user_name = Some(user_name);
+        }
     }
 
     pub fn get_player_room_id(&self, player_id: u64) -> Option<String> {

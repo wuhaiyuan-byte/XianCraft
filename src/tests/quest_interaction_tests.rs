@@ -22,7 +22,7 @@ mod tests {
 
         // 3. Simulate moving the player to 'deep_bamboo_1'
         let room_id = "deep_bamboo_1";
-        world_state.move_player_to_room(player_id, room_id);
+        world_state.move_player_to_room(player_id, room_id, None);
         assert_eq!(world_state.get_player_room_id(player_id).unwrap(), room_id);
 
         // 4. Verify quest board and quest availability

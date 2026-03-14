@@ -35,6 +35,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use colored::*;
 
 use crate::command::{parse, Command};
+use crate::npc::Npc;
 use crate::world::player::{Player, PlayerQuestStatus};
 use crate::world::world_state::WorldState;
 
@@ -407,12 +408,23 @@ async fn websocket_handler(
     ws.on_upgrade(|socket| websocket(socket, state))
 }
 
-fn get_full_room_description(room_id: &str, world_state: &WorldState) -> String {
+fn get_full_room_description(
+    room_id: &str, 
+    world_state: &WorldState, 
+    other_players: Vec<String>,
+    npcs_in_room: Vec<Npc>,
+    room_items: Vec<u32>,
+) -> String {
     if let Some(room) = world_state.get_room(room_id) {
         let mut full_desc = format!("{}
 {}", room.name.cyan().bold(), room.description);
 
-        let npcs_in_room = world_state.get_npcs_in_room(room_id);
+        if !other_players.is_empty() {
+            let player_list: Vec<String> = other_players.iter().map(|n| n.green().to_string()).collect();
+            full_desc.push_str(&format!("
+你在此处看到了：{}", player_list.join(", ")));
+        }
+
         if !npcs_in_room.is_empty() {
             let npc_names: Vec<String> = npcs_in_room
                 .iter()
@@ -422,7 +434,6 @@ fn get_full_room_description(room_id: &str, world_state: &WorldState) -> String 
 ● {}", npc_names.join(", ")));
         }
 
-        let room_items = world_state.get_items_in_room(room_id);
         if !room_items.is_empty() {
             let item_names: Vec<String> = room_items
                 .iter()
@@ -469,7 +480,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     let starting_room = "genesis_altar".to_string();
-    state.world_state.move_player_to_room(player_id, &starting_room);
+    state.world_state.move_player_to_room(player_id, &starting_room, None);
     
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -492,8 +503,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                 let mut sessions = state.player_sessions.lock().unwrap();
                                 if let Some(session) = sessions.get_mut(&player_id) {
                                     session.user_id = Some(user_id.clone());
-                                    session.player.name = user_id;
+                                    session.player.name = user_id.clone();
                                     session.player.last_input_time = StdSystemTime::now().duration_since(StdSystemTime::UNIX_EPOCH).unwrap().as_secs();
+                                    
+                                    state.world_state.update_player_name(player_id, user_id.clone());
+                                    tracing::info!("[LOGIN] Player {} logged in as {}", player_id, user_id);
 
                                     if session.player.active_quests.is_empty() && session.player.completed_quests.is_empty() {
                                         if world.static_data.quests.contains_key("tutorial_1") {
@@ -517,7 +531,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                 // *** THIS IS THE CHANGED LINE ***
                                 let mut welcome_content = format!("{}
 
-{}", build_welcome_message(), get_full_room_description("genesis_altar", world));
+{}", build_welcome_message(), get_full_room_description("genesis_altar", world, Vec::new(), Vec::new(), Vec::new()));
                                 
                                 if tutorial_given {
                                     welcome_content.push_str(&format!("
@@ -557,6 +571,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
     let mut messages_to_send = Vec::new();
 
     if matches!(command, Command::Who) {
+        tracing::info!("[WHO] Player {} requested who list", player_id);
         let who_output = generate_who_list(&state, true);
         messages_to_send.push(ServerMessage::Description { payload: who_output });
     } else {
@@ -729,12 +744,14 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 }
                             }
                             Command::Go { direction } => {
-                                if let Some(next_room_id) = current_room.exits.get(&direction) {
+                                    if let Some(next_room_id) = current_room.exits.get(&direction) {
                                     if !session.player.consume_stamina(1) {
                                         messages_to_send.push(ServerMessage::Error { payload: "你太累了，走不动了。".to_string() });
                                     } else {
                                         let next_room_id_str = next_room_id.clone();
-                                        world.move_player_to_room(player_id, &next_room_id_str);
+                                        let user_name = session.user_id.clone();
+                                        tracing::info!("[MOVE] Player {} moved from {} to {}", player_id, current_room_id_str, next_room_id_str);
+                                        world.move_player_to_room(player_id, &next_room_id_str, user_name);
                                         
                                         let mut quest_updates = Vec::new();
                                         for status in &mut session.player.active_quests {
@@ -748,7 +765,7 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                             }
                                         }
 
-                                        let mut payload = get_full_room_description(&next_room_id_str, world);
+                                        let mut payload = get_full_room_description(&next_room_id_str, world, Vec::new(), Vec::new(), Vec::new());
                                         for (name, is_finished, rewards) in quest_updates {
                                             if is_finished {
                                                 payload.push_str(&format!("
@@ -962,12 +979,24 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                 }
                             }
                             Command::Look => {
-                                let desc = get_full_room_description(&current_room_id_str, world);
+                                tracing::info!("[LOOK] Player {} looking at room {}", player_id, current_room_id_str);
+                                let (other_players, npc_data, room_items_data) = {
+                                    let data = world.dynamic_data.lock().unwrap();
+                                    let players: Vec<String> = data.players.iter()
+                                        .filter(|(id, loc)| **id != player_id && loc.room_id == current_room_id_str)
+                                        .filter_map(|(_, loc)| loc.user_name.clone())
+                                        .collect();
+                                    let npcs: Vec<Npc> = data.npcs.values()
+                                        .filter(|npc| npc.current_room == current_room_id_str)
+                                        .cloned()
+                                        .collect();
+                                    let items: Vec<u32> = data.room_items.get(&current_room_id_str).cloned().unwrap_or_default();
+                                    (players, npcs, items)
+                                };
+                                let desc = get_full_room_description(&current_room_id_str, world, other_players, npc_data.clone(), room_items_data);
                                 messages_to_send.push(ServerMessage::Description { payload: desc });
                                 
-                                // Check if looking at a QuestBoard to show available quests
-                                let npcs = world.get_npcs_in_room(&current_room_id_str);
-                                if npcs.iter().any(|n| n.prototype_id == 2000) {
+                                if npc_data.iter().any(|n| n.prototype_id == 2000) {
                                     let mut available = Vec::new();
                                     for quest in world.static_data.quests.values() {
                                         if quest.quest_type == "kill" && 
@@ -978,13 +1007,13 @@ async fn handle_command(command: Command, player_id: u64, state: Arc<AppState>, 
                                     }
                                     if !available.is_empty() {
                                         let mut board_msg = format!("{}
-", "
-告示牌上贴着以下悬赏：".yellow().bold());
+ ", "
+ 告示牌上贴着以下悬赏：".yellow().bold());
                                         board_msg.push_str(&available.join("
 "));
                                         board_msg.push_str(&format!("
 {}", "
-输入 'accept <任务ID>' 即可接取.".white().bold()));
+ 输入 'accept <任务ID>' 即可接取.".white().bold()));
                                         messages_to_send.push(ServerMessage::Info { payload: board_msg });
                                     }
                                 }

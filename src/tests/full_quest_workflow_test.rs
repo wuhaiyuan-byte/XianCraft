@@ -17,15 +17,15 @@ mod tests {
         let mut player = Player::new(player_id, "道号测试".to_string());
         
         let start_room = "genesis_altar";
-        world_state.move_player_to_room(player_id, start_room);
+        world_state.move_player_to_room(player_id, start_room, None);
         assert_eq!(world_state.get_player_room_id(player_id).unwrap(), start_room);
 
         let initial_shell = player.wallet.shell;
         let initial_level = player.realm_sub_level;
 
         // 2. Step 1 (Movement): Move player to deep_bamboo_1 via bamboo_forest
-        world_state.move_player_to_room(player_id, "bamboo_forest");
-        world_state.move_player_to_room(player_id, "deep_bamboo_1");
+        world_state.move_player_to_room(player_id, "bamboo_forest", None);
+        world_state.move_player_to_room(player_id, "deep_bamboo_1", None);
         let current_room = world_state.get_player_room_id(player_id).unwrap();
         assert_eq!(current_room, "deep_bamboo_1");
 
@@ -44,7 +44,7 @@ mod tests {
         // 4. Step 3 (Combat/Progress): Simulate 2 Attack commands on 3002 (翠竹蛇)
         let monster_id = "3002";
         // Move to a room where the snake actually spawns
-        world_state.move_player_to_room(player_id, "deep_bamboo_2");
+        world_state.move_player_to_room(player_id, "deep_bamboo_2", None);
         let combat_room = "deep_bamboo_2";
 
         for i in 1..=2 {

@@ -30,7 +30,7 @@ mod tests {
 
         // Move player to the room with the monster
         let room_id = "deep_bamboo_2";
-        world_state.move_player_to_room(player_id, room_id);
+        world_state.move_player_to_room(player_id, room_id, None);
 
         // 4. Loop 2 times to simulate 2 kills
         for i in 1..=2 {

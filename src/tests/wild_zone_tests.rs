@@ -18,7 +18,7 @@ mod tests {
 
         // 3. Move player to deep_bamboo_1
         let room_id = "deep_bamboo_1";
-        world_state.move_player_to_room(player_id, room_id);
+        world_state.move_player_to_room(player_id, room_id, None);
         
         // Ensure room exists and player is there
         assert!(world_state.get_room(room_id).is_some());

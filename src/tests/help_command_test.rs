@@ -30,7 +30,7 @@ mod tests {
             sender: sender.clone(),
         };
         app_state.player_sessions.lock().unwrap().insert(player_id, player_session);
-        app_state.world_state.move_player_to_room(player_id, "genesis_altar");
+        app_state.world_state.move_player_to_room(player_id, "genesis_altar", Some("帮助测试员".to_string()));
 
         // 3. Parse the command we want to test
         let command = parse("help");

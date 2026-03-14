@@ -18,7 +18,7 @@ mod tests {
 
         // 3. Move player to deep_bamboo_2 (where 翠竹蛇 ID 3002 is located)
         let room_id = "deep_bamboo_2";
-        world_state.move_player_to_room(player_id, room_id);
+        world_state.move_player_to_room(player_id, room_id, None);
         
         // 4. Manually add quest q201 to the player's active_quests
         let quest_id = "q201";
