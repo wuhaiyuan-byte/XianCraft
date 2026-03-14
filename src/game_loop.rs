@@ -285,36 +285,32 @@ async fn process_combat_ticks(app_state: &Arc<AppState>) {
     }
     
     for (attacker_id, attacker_is_player, defender_id, defender_is_player, new_hp, _msg_to_attacker, _msg_to_defender, is_dead) in &updates {
-        if !*defender_is_player {
-            // 无论NPC是否还存在，都清除玩家的战斗状态
+        // 只有当NPC死亡时才清除玩家的战斗状态
+        if !*defender_is_player && *is_dead {
             let attacker_id: u64 = attacker_id.to_string().parse().unwrap_or(0);
-            let mut sessions = app_state.player_sessions.lock().unwrap();
-            if let Some(session) = sessions.get_mut(&attacker_id) {
-                session.player.combat_state = None;
-            }
-            drop(sessions);
             
-            if *is_dead {
-                let mut data = app_state.world_state.dynamic_data.lock().unwrap();
-                if let Some(npc) = data.npcs.get(defender_id) {
-                    let npc_proto_id = npc.prototype_id;
-                    let npc_name = npc.name.clone();
-                    data.npcs.remove(defender_id);
-                    drop(data);
+            // 移除NPC
+            let mut data = app_state.world_state.dynamic_data.lock().unwrap();
+            if let Some(npc) = data.npcs.get(defender_id) {
+                let npc_proto_id = npc.prototype_id;
+                let npc_name = npc.name.clone();
+                data.npcs.remove(defender_id);
+                drop(data);
+                
+                // 清除玩家战斗状态并发送消息
+                let mut sessions = app_state.player_sessions.lock().unwrap();
+                if let Some(session) = sessions.get_mut(&attacker_id) {
+                    session.player.combat_state = None;
+                    let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", npc_name.yellow());
+                    let msg = ServerMessage::Description { payload: death_msg };
+                    if let Ok(json) = serde_json::to_string(&msg) {
+                        let _ = session.sender.try_send(Message::Text(json));
+                    }
                     
-                    let mut sessions = app_state.player_sessions.lock().unwrap();
-                    if let Some(session) = sessions.get_mut(&attacker_id) {
-                        let death_msg = format!("{}发出了一声不甘的惨叫声，身死道消，化作点点灵光消散于天地间。", npc_name.yellow());
-                        let msg = ServerMessage::Description { payload: death_msg };
-                        if let Ok(json) = serde_json::to_string(&msg) {
+                    let quest_msg = session.player.on_kill(&npc_proto_id.to_string(), &app_state.world_state.static_data.quests);
+                    if !quest_msg.is_empty() {
+                        if let Ok(json) = serde_json::to_string(&ServerMessage::Info { payload: quest_msg }) {
                             let _ = session.sender.try_send(Message::Text(json));
-                        }
-                        
-                        let quest_msg = session.player.on_kill(&npc_proto_id.to_string(), &app_state.world_state.static_data.quests);
-                        if !quest_msg.is_empty() {
-                            if let Ok(json) = serde_json::to_string(&ServerMessage::Info { payload: quest_msg }) {
-                                let _ = session.sender.try_send(Message::Text(json));
-                            }
                         }
                     }
                 }
